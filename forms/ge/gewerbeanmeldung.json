@@ -58,6 +58,7 @@
       "fax": "Geben Sie eine Fax Nummer an (Optional, zum überspringen Enter drücken)"
     }
   },
-  "validators": "GewerbeanmeldungValidators"
+  "validators": "GewerbeanmeldungValidators",
+  "pdf_file":"pdfs/Gewerbeanmeldung.pdf"
   }
 

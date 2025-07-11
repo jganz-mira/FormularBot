@@ -91,7 +91,8 @@ def chatbot_fn(
             "form_type": None,   # which form the user has chosen
             "lang": "de",        # language code for future multi-language support
             "responses": {},     # stores slot_name -> user_response
-            "idx": 0             # pointer into the slots list
+            "idx": 0,            # pointer into the slots list
+            "pdf_file": None     # path to the pdf file for later overwrite
         }
 
     print(state)
@@ -159,6 +160,8 @@ def chatbot_fn(
                 opts = slot0_def["choices"]
                 opt_lines = "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(opts))
                 prompt0 += "\n" + opt_lines
+            # save the path to the template pdf file to the state
+            state["pdf_file"] = FORMS[message]["pdf_file"]
             # add the fully formatted promt to history
             history.append(ChatMessage(role='assistant',content=prompt0))
             return history, state, ""
