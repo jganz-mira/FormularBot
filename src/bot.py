@@ -2,7 +2,7 @@
 from typing import Optional, Tuple, List, Dict, Any
 import os
 from .validators import BaseValidators, GewerbeanmeldungValidators
-from .bot_helper import load_forms, next_slot_index, print_summary, map_yes_no_to_bool
+from .bot_helper import load_forms, next_slot_index, print_summary, map_yes_no_to_bool, save_responses_to_json
 from .llm_validator_service import LLMValidatorService
 from openai import OpenAI
 from gradio import ChatMessage
@@ -94,6 +94,8 @@ def chatbot_fn(
             "idx": 0             # pointer into the slots list
         }
 
+    print(state)
+
     msg_low = (message or "").lower()
     # --- Classify Edit intent via LLM classification ---
     if state.get("form_type") and message and any(cmd in msg_low for cmd in EDIT_CMDS):
@@ -181,6 +183,7 @@ def chatbot_fn(
         slot_def   = slots_def[cur_idx]
         slot_name = slot_def["slot_name"]
         slot_type  = slot_def["slot_type"]
+        target_filed_name = slot_def.get("filed_name",None)
 
         # CHOICE slot handling
         if slot_type== "choice":
@@ -207,7 +210,7 @@ def chatbot_fn(
                 value = map_yes_no_to_bool(selection)
             else:
                 value = selection
-            state["responses"][slot_name] = value
+            state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name}
 
         # TEXT slot handling
         elif slot_type== "text":
@@ -216,7 +219,7 @@ def chatbot_fn(
                 history.append(ChatMessage(role='user',content=message))
                 history.append(ChatMessage(role='assistant',content=f"Ungültige Eingabe für **{slot_name}**. Bitte erneut:"))
                 return history, state, ""
-            state["responses"][slot_name] = message
+            state["responses"][slot_name] = {"value" : message, "target_filed_name": target_filed_name}
 
         # advance to next
         state["idx"] = cur_idx + 1
@@ -245,6 +248,7 @@ def chatbot_fn(
         history.append(ChatMessage(role='assistant',content=prompt))
     else:
         history.append(ChatMessage(role='assistant',content="Vielen Dank! Das Formular ist abgeschlossen."))
+        save_responses_to_json(state=state, output_path="out/out.json")
         print_summary(state = state, forms = FORMS)
         state = None
 
