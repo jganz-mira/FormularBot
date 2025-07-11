@@ -213,7 +213,7 @@ def chatbot_fn(
                 value = map_yes_no_to_bool(selection)
             else:
                 value = selection
-            state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name}
+            state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name, "choices": slot_def['choices']}
 
         # TEXT slot handling
         elif slot_type== "text":
