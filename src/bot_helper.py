@@ -40,7 +40,7 @@ def next_slot_index(
             prev_val = responses.get(cond["slot_name"])
             ###debug####
             print(cond["slot_value"])
-            if prev_val != cond["slot_value"]:
+            if prev_val['value'] != cond["slot_value"]:
                 continue
         return i
     return None
@@ -92,3 +92,40 @@ def map_yes_no_to_bool(selection: str) -> str:
     if norm == "nein":
         return "false"
     return selection  # fallback: unverändert
+
+def save_responses_to_json(state: dict, output_path: str):
+    """
+    Liest alle Antworten aus state['responses'] aus und schreibt sie
+    als JSON im Format { slot_name: { value, target_filed_name } }.
+    """
+    responses = state.get("responses", {})
+    out_data = {}
+
+    for slot_name, details in responses.items():
+        # Hole value und target_filed_name, falls vorhanden
+        value = details.get("value")
+        target = details.get("target_filed_name")
+        choices = details.get("choices",None)
+        # Nur Slot eintragen, wenn mindestens value vorhanden ist
+        if value is not None:
+            out_data[slot_name] = {
+                "value": value,
+                "target_filed_name": target,
+                "choices": choices
+            }
+
+    result = {
+        "form_type": state.get("form_type"),
+        "lang":       state.get("lang"),
+        "data":       out_data,
+        "pdf_file": state.get("pdf_file")
+    }
+
+    # Verzeichnis anlegen, falls nicht existent
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    # Schreiben
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+
+    print(f"Antworten gespeichert in {output_path}")
