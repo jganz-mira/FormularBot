@@ -1,0 +1,10 @@
+{
+  "slots": ["name", "phone"],
+  "prompt_map": {
+    "de": {
+      "name": "Bitte geben Sie Ihren Vor- und Nachnamen ein:",
+      "phone": "Bitte geben Sie Ihre Telefonnummer ein:"
+    }
+  },
+  "validators": "BaseValidators"
+}

@@ -1,0 +1,96 @@
+# ====================
+# Environment & IDEs
+# ====================
+# Environment file
+.env
+
+# VSCode settings folder
+.vscode/
+
+# Python virtual environments (falls du sie nicht .env nennst)
+venv/
+.envs/
+env/
+ENV/
+
+# ====================
+# Python Byte-Code & Caches
+# ====================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# mypy cache
+.mypy_cache/
+.dmypy.json
+
+# pytest cache
+.pytest_cache/
+
+# coverage reports
+.coverage
+htmlcov/
+
+# ====================
+# Jupyter Notebooks
+# ====================
+# gesamtes notebooks-Verzeichnis
+notebooks/
+
+# Einzelne Notebook-Dateien überall
+*.ipynb
+
+# Checkpoints, die Jupyter automatisch anlegt
+.ipynb_checkpoints/
+
+# ====================
+# Distribution / Build
+# ====================
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+
+# compiled C extensions
+*.so
+
+# ====================
+# Logs & Reports
+# ====================
+*.log
+logs/
+
+# ====================
+# Betriebssystem
+# ====================
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# ====================
+# Optional je nach Toolchain
+# ====================
+# pipenv
+Pipfile.lock
+
+# pyenv
+.python-version
+
+# coverage / report builder
+.coverage.*
+coverage.xml
+
+# IDEs / Editoren
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ====================
+# Sonstige
+# ====================
+# Secret‐Store (z.B. AWS creds)
+*.key
+*.pem

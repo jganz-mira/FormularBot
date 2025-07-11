@@ -1,0 +1,63 @@
+{
+  "slots": [
+    {
+      "slot_name":"registered_name",
+      "slot_type": "text",
+      "description": "Im Handels-, Genossenschafts- oder Vereinsregister, ggf. im Stiftungsverzeichnis eingetragener Name mit Rechtsform (bei GbR: Angabe der weiteren Gesellschafter)",
+      "filed_name":"txtEintragungsnameS1"
+    },
+    {
+      "slot_name":"commercial_register_number",
+      "slot_type":"text", 
+      "description":"Ort und Nr. des Eintrags im Handels-, Genossenschaftsoder Vereinsregister, ggf. Nummer im Stiftungsverzeichnis",
+      "filed_name":"txtEintragungsortS1"
+    },
+    {
+      "slot_name":"sex",
+      "slot_type":"choice", 
+      "choices":["männlich","weiblich","divers","ohne Angabe"], 
+      "description": "Geschlecht",
+      "filed_name":["chkGeschlecht1S1","chkGeschlecht2S1","chkGeschlecht3S1","chkGeschlecht4S1"]},
+    {
+      "slot_name":"permit",
+      "slot_type":"choice",
+      "choices":["ja","nein"],
+      "description": "Liegt eine Erlaubnis vor?",
+      "filed_name":["chkErlaubnis1S2","chkErlaubnis2S2"]
+    },
+    {
+      "slot_name":"permit_date", 
+      "slot_type":"text","condition" : {"slot_name":"permit", "slot_value":"true"}, 
+      "description":"Austellungsdatum der Erlaubnis",
+      "filed_name":"txtAusstellungsdat1S2"},
+    {
+      "slot_name":"permit_office",
+      "slot_type":"text",
+      "condition" : {
+        "slot_name":"permit",
+        "slot_value":"true"
+      },
+      "description":"Austellende Behörde",
+      "filed_name":"txtAusstellungsdat1S2"
+    },
+    {
+      "slot_name": "fax", 
+      "slot_type": "text", 
+      "description": "Fax-Nr.; Fax Nummer",
+      "filed_name":"txtFax1S1"
+    }
+  ],
+  "prompt_map": {
+    "de": {
+      "registered_name": "Bitte geben Sie im Handels-, Genossenschafts- oder Vereinsregister, ggf. im Stiftungsverzeichnis eingetragener Name mit Rechtsform (bei GbR: Angabe der weiteren Gesellschafter) ein:",
+      "commercial_register_number": "Bitte geben Sie Ort und Nr. des Eintrags im Handels-, Genossenschaftsoder Vereinsregister, ggf. Nummer im Stiftungsverzeichnis ein:",
+      "sex": "Bitte geben Sie Ihr Geschlecht entsprechend der Eintragung in Ihrer Geburtsurkunde an (männlich, weiblich, divers, ohne Angabe)",
+      "permit": "Liegt eine Erlaubnis vor?",
+      "permit_date": "Wann wurde die Erlaubnis ausgestellt (Datum bitte als TT.MM.JJJJ angeben).",
+      "permit_office": "Wie lautet der Name der Behörde, welche die Erlaubnis ausgestellt hat?",
+      "fax": "Geben Sie eine Fax Nummer an (Optional, zum überspringen Enter drücken)"
+    }
+  },
+  "validators": "GewerbeanmeldungValidators"
+  }
+
