@@ -37,11 +37,16 @@ def next_slot_index(
         cond = slot_def.get("condition")
         # if a condition is defined, skip unless it's fulfilled
         if cond:
-            prev_val = responses.get(cond["slot_name"])
-            ###debug####
-            print(cond["slot_value"])
-            if prev_val['value'] != cond["slot_value"]:
-                continue
+            # here one can define other "conditions" to check for
+            if cond["slot_value"] == 'not empty':
+                prev_val = responses.get(cond["slot_name"])
+                if prev_val['value'] == "":
+                    continue
+            # fallback condition, check for equality to "slot_value" defined in json
+            else:
+                prev_val = responses.get(cond["slot_name"])
+                if prev_val['value'] != cond["slot_value"]:
+                    continue
         return i
     return None
 
