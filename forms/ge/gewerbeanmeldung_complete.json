@@ -1,0 +1,484 @@
+{
+  "slots": [
+    {
+      "slot_name": "registered_name",
+      "slot_type": "text",
+      "description": "Im Handels-, Genossenschafts- oder Vereinsregister, ggf. im Stiftungsverzeichnis eingetragener Name mit Rechtsform (bei GbR: Angabe der weiteren Gesellschafter)",
+      "filed_name": "txtEintragungsnameS1"
+    },
+    {
+      "slot_name": "commercial_register_number",
+      "slot_type": "text",
+      "description": "Ort und Nr. des Eintrags im Handels-, Genossenschafts- oder Vereinsregister, ggf. Nummer im Stiftungsverzeichnis",
+      "filed_name": "txtEintragungsortS1"
+    },
+    {
+      "slot_name": "company_name",
+      "slot_type": "text",
+      "description": "Name des Geschäfts, wenn er vom eingetragenen Namen in Feld 1 abweicht",
+      "filed_name": "txtNameGeschaeftS1"
+    },
+    {
+      "slot_name": "family_name",
+      "slot_type": "text",
+      "description": "Familienname; Nachname",
+      "filed_name": "txtFamiliennameS1"
+    },
+    {
+      "slot_name": "given_name",
+      "slot_type": "text",
+      "description": "Vorname(n)",
+      "filed_name": "txtVornamenS1"
+    },
+    {
+      "slot_name": "sex",
+      "slot_type": "choice",
+      "choices": ["männlich", "weiblich", "divers", "ohne Angabe"],
+      "description": "Geschlecht entsprechend der Eintragung in der Geburtsurkunde",
+      "filed_name": ["chkGeschlecht1S1","chkGeschlecht2S1","chkGeschlecht3S1","chkGeschlecht4S1"]
+    },
+    {
+      "slot_name": "birth_name",
+      "slot_type": "text",
+      "description": "Geburtsname (nur bei Abweichung vom Familiennamen)",
+      "filed_name": "txtGeburtsnamenS1"
+    },
+    {
+      "slot_name": "birth_date",
+      "slot_type": "text",
+      "description": "Geburtsdatum (TT.MM.JJJJ)",
+      "filed_name": "txtGeburtsdatumS1"
+    },
+    {
+      "slot_name": "birth_place",
+      "slot_type": "text",
+      "description": "Geburtsort und -land",
+      "filed_name": "txtGeburtsortS1"
+    },
+    {
+      "slot_name": "nationality",
+      "slot_type": "choice",
+      "choices": ["deutsch", "andere"],
+      "description": "Staatsangehörigkeit(en)",
+      "filed_name": ["chkStaat1S1","chkStaat2S1"]
+    },
+    {
+      "slot_name": "other_nationality",
+      "slot_type": "text",
+      "description": "Andere Staatsangehörigkeit",
+      "filed_name": "txtStaatS1",
+      "condition": {
+        "slot_name": "nationality",
+        "slot_value": "andere"
+      }
+    },
+    {
+      "slot_name": "address",
+      "slot_type": "text",
+      "description": "Anschrift der Wohnung (Straße, Hausnummer, Postleitzahl, Ort)",
+      "filed_name": "txtAnschrift1S1"
+    },
+    {
+      "slot_name": "phone",
+      "slot_type": "text",
+      "description": "(Mobil-)Tel.-Nr.",
+      "filed_name": "txtTel1S1"
+    },
+    {
+      "slot_name": "fax",
+      "slot_type": "text",
+      "description": "Fax-Nr.",
+      "filed_name": "txtFax1S1"
+    },
+    {
+      "slot_name": "email",
+      "slot_type": "text",
+      "description": "E-Mail",
+      "filed_name": "txtMail1S1"
+    },
+    {
+      "slot_name": "website",
+      "slot_type": "text",
+      "description": "Internet",
+      "filed_name": "txtInternet1S1"
+    },
+    {
+      "slot_name": "num_partners",
+      "slot_type": "text",
+      "description": "Zahl der geschäftsführenden Gesellschafter (nur bei Personengesellschaften)",
+      "filed_name": "txtGesellschafterS1"
+    },
+    {
+      "slot_name": "num_representatives",
+      "slot_type": "text",
+      "description": "Zahl der gesetzlichen Vertreter (nur bei juristischen Personen)",
+      "filed_name": "txtVertreterS1"
+    },
+    {
+      "slot_name": "public_participation",
+      "slot_type": "choice",
+      "choices": ["ja", "nein", "nicht bekannt"],
+      "description": "Liegt eine Beteiligung der öffentlichen Hand vor?",
+      "filed_name": ["chkHand1S1","chkHand2S1","chkHand3S1"]
+    },
+    {
+      "slot_name": "representative_name",
+      "slot_type": "text",
+      "description": "Vertretungsberechtigte Person/Betriebsleiter (Name, Vorname(n))",
+      "filed_name": "txtPersonS1"
+    },
+    {
+      "slot_name": "representative_address",
+      "slot_type": "text",
+      "description": "Anschrift der Betriebsstätte (Straße, Hausnummer, PLZ, Ort)",
+      "filed_name": "txtBetriebS1"
+    },
+    {
+      "slot_name": "rep_phone",
+      "slot_type": "text",
+      "description": "Telefon der Betriebsstätte",
+      "filed_name": "txtTel2S1"
+    },
+    {
+      "slot_name": "rep_fax",
+      "slot_type": "text",
+      "description": "Fax der Betriebsstätte",
+      "filed_name": "txtFax2S1"
+    },
+    {
+      "slot_name": "rep_email",
+      "slot_type": "text",
+      "description": "E-Mail der Betriebsstätte",
+      "filed_name": "txtMail2S1"
+    },
+    {
+      "slot_name": "rep_website",
+      "slot_type": "text",
+      "description": "Internet der Betriebsstätte",
+      "filed_name": "txtInternet2S1"
+    },
+    {
+      "slot_name": "main_branch_address",
+      "slot_type": "text",
+      "description": "Hauptniederlassung Anschrift",
+      "filed_name": "txtHauptS1"
+    },
+    {
+      "slot_name": "main_branch_phone",
+      "slot_type": "text",
+      "description": "Tel.-Nr. der Hauptniederlassung",
+      "filed_name": "txtTel3S1"
+    },
+    {
+      "slot_name": "main_branch_fax",
+      "slot_type": "text",
+      "description": "Fax-Nr. der Hauptniederlassung",
+      "filed_name": "txtFax3S1"
+    },
+    {
+      "slot_name": "main_branch_email",
+      "slot_type": "text",
+      "description": "E-Mail der Hauptniederlassung",
+      "filed_name": "txtMail3S1"
+    },
+    {
+      "slot_name": "main_branch_website",
+      "slot_type": "text",
+      "description": "Internet der Hauptniederlassung",
+      "filed_name": "txtInternet3S1"
+    },
+    {
+      "slot_name": "previous_branch_address",
+      "slot_type": "text",
+      "description": "Frühere Betriebsstätte Anschrift",
+      "filed_name": "txtFrueherS1"
+    },
+    {
+      "slot_name": "previous_branch_phone",
+      "slot_type": "text",
+      "description": "Tel.-Nr. der früheren Betriebsstätte",
+      "filed_name": "txtTel4S1"
+    },
+    {
+      "slot_name": "previous_branch_fax",
+      "slot_type": "text",
+      "description": "Fax-Nr. der früheren Betriebsstätte",
+      "filed_name": "txtFax4S1"
+    },
+    {
+      "slot_name": "previous_branch_email",
+      "slot_type": "text",
+      "description": "E-Mail der früheren Betriebsstätte",
+      "filed_name": "txtMail4S1"
+    },
+    {
+      "slot_name": "previous_branch_website",
+      "slot_type": "text",
+      "description": "Internet der früheren Betriebsstätte",
+      "filed_name": "txtInternet4S1"
+    },
+    {
+      "slot_name": "activity",
+      "slot_type": "text",
+      "description": "Angemeldete Tätigkeit",
+      "filed_name": "txtAngemeldetS2"
+    },
+    {
+      "slot_name": "secondary_operation",
+      "slot_type": "choice",
+      "choices": ["ja", "nein"],
+      "description": "Wird die Tätigkeit im Nebenerwerb betrieben?",
+      "filed_name": ["chkNeben1S2","chkNeben2S2"]
+    },
+    {
+      "slot_name": "start_date",
+      "slot_type": "text",
+      "description": "Datum des Beginns der angemeldeten Tätigkeit (TT.MM.JJJJ)",
+      "filed_name": "txtBeginnS2"
+    },
+    {
+      "slot_name": "business_type",
+      "slot_type": "choice",
+      "choices": ["Industrie", "Handwerk", "Handel", "Sonstiges"],
+      "description": "Art des angemeldeten Betriebs",
+      "filed_name": ["chkArtBetrieb1S2","chkArtBetrieb2S2","chkArtBetrieb3S2","chkArtBetrieb4S2"]
+    },
+    {
+      "slot_name": "employees_none",
+      "slot_type": "choice",
+      "choices": ["keine"],
+      "description": "Keine Mitarbeiter",
+      "filed_name": ["chkZahlPersonenS2"]
+    },
+    {
+      "slot_name": "employees_full_time",
+      "slot_type": "text",
+      "description": "Zahl der bei Geschäftsaufnahme tätigen Vollzeitkräfte",
+      "filed_name": "txtVollS2",
+      "condition": {
+        "slot_name": "employees_none",
+        "slot_value": false
+      }
+    },
+    {
+      "slot_name": "employees_part_time",
+      "slot_type": "text",
+      "description": "Zahl der bei Geschäftsaufnahme tätigen Teilzeitkräfte",
+      "filed_name": "txtTeilS2",
+      "condition": {
+        "slot_name": "employees_none",
+        "slot_value": false
+      }
+    },
+    {
+      "slot_name": "registration_for",
+      "slot_type": "choice",
+      "choices": ["Hauptniederlassung","Zweigniederlassung","unselbstständige Zweigstelle","Reisegewerbe"],
+      "description": "Art der Niederlassung, für welche die Anmeldung erstattet wird.",
+      "filed_name": ["chkErstattung1S2","chkErstattung2S2","chkErstattung3S2","chkErstattung4S2"]
+    },
+    {
+      "slot_name": "reason",
+      "slot_type": "choice",
+      "choices": [
+        "Neugründung",
+        "Wiedereröffnung nach Verlegung aus einem anderen Meldebezirk",
+        "Übergang nach dem Umwandlungsgesetz",
+        "Wechsel der Rechtsform",
+        "Gesellschaftereintritt",
+        "Übernahme (Erbfolge/Kauf/Pacht)"
+      ],
+      "description": "Grund der Neuerrichtung/Übernahme",
+      "filed_name": ["chkGrund1S2","chkGrund2S2","chkGrund3S2","chkGrund4S2","chkGrund5S2","chkGrund6S2"]
+    },
+    {
+      "slot_name": "previous_business_name",
+      "slot_type": "text",
+      "description": "Name des früheren Gewerbetreibenden oder früherer Firmenname",
+      "filed_name": "txtNameS2"
+    },
+    {
+      "slot_name": "insurance_provider",
+      "slot_type": "text",
+      "description": "Bisheriger gesetzlicher Unfallversicherungsträger",
+      "filed_name": "txtVersicherungS2",
+      "condition": {
+        "slot_name": "insurance_unknown",
+        "slot_value": false
+      }
+    },
+    {
+      "slot_name": "insurance_unknown",
+      "slot_type": "choice",
+      "choices": ["nicht bekannt"],
+      "description": "Versicherungsträger nicht bekannt",
+      "filed_name": ["chkNicht1S2"]
+    },
+    {
+      "slot_name": "membership_number",
+      "slot_type": "text",
+      "description": "Angabe des bisherigen gesetzlichen Unfallversicherungsträgers",
+      "filed_name": "txtMitgliedS2",
+      "condition": {
+        "slot_name": "membership_unknown",
+        "slot_value": false
+      }
+    },
+    {
+      "slot_name": "membership_unknown",
+      "slot_type": "choice",
+      "choices": ["nicht bekannt"],
+      "description": "Angabe des bisherigen Mitgliedsnummer bei der gesetzlichen Unfallversicherung",
+      "filed_name": ["chkNicht2S2"]
+    },
+    {
+      "slot_name": "permit",
+      "slot_type": "choice",
+      "choices": ["ja", "nein"],
+      "description": "Liegt eine Erlaubnis vor?",
+      "filed_name": ["chkErlaubnis1S2","chkErlaubnis2S2"]
+    },
+    {
+      "slot_name": "permit_date",
+      "slot_type": "text",
+      "description": "Ausstellungsdatum der Erlaubnis",
+      "filed_name": "txtAusstellungsdat1S2",
+      "condition": {
+        "slot_name": "permit",
+        "slot_value": "ja"
+      }
+    },
+    {
+      "slot_name": "permit_office",
+      "slot_type": "text",
+      "description": "Erteilende Behörde der Erlaubnis",
+      "filed_name": "txtAusstellungsdat1S2",
+      "condition": {
+        "slot_name": "permit",
+        "slot_value": "ja"
+      }
+    },
+    {
+      "slot_name": "handwerkskarte",
+      "slot_type": "choice",
+      "choices": ["ja", "nein"],
+      "description": "Liegt eine Handwerkskarte vor?",
+      "filed_name": ["chkAnlageA1S2","chkAnlageA2S2"]
+    },
+    {
+      "slot_name": "handwerkskarte_details",
+      "slot_type": "text",
+      "description": "Ausstellungsdatum und Name der Handwerkskammer",
+      "filed_name": "txtAusstellungsdat2S2",
+      "condition": {
+        "slot_name": "handwerkskarte",
+        "slot_value": "ja"
+      }
+    },
+    {
+      "slot_name": "residence_permit",
+      "slot_type": "choice",
+      "choices": ["ja", "nein"],
+      "description": "Liegt ein Aufenthaltstitel vor?",
+      "filed_name": ["chkAufenthalt1S2","chkAufenthalt2S2"]
+    },
+    {
+      "slot_name": "residence_permit_details",
+      "slot_type": "text",
+      "description": "Ausstellungsdatum und erteilende Behörde des Aufenthaltstitels",
+      "filed_name": "txtAusstellungsdat3S2",
+      "condition": {
+        "slot_name": "residence_permit",
+        "slot_value": "ja"
+      }
+    },
+    {
+      "slot_name": "permit_restriction",
+      "slot_type": "choice",
+      "choices": ["ja", "nein"],
+      "description": "Enthält der Aufenthaltstitel eine Auflage/Beschränkung?",
+      "filed_name": ["chkAuflage1S2","chkAuflage2S2"]
+    },
+    {
+      "slot_name": "restriction_details",
+      "slot_type": "text",
+      "description": "Angabe der Auflage und/oder Beschränkungen",
+      "filed_name": "txtAuflageS2",
+      "condition": {
+        "slot_name": "permit_restriction",
+        "slot_value": "ja"
+      }
+    },
+    {
+      "slot_name": "application_date",
+      "slot_type": "text",
+      "description": "Datum der Anmeldung (TT.MM.JJJJ)",
+      "filed_name": "txtDatumS2"
+    }
+  ],
+"prompt_map": {
+    "de": {
+      "registered_name": "Bitte geben Sie den im Handels-, Genossenschafts- oder Vereinsregister, ggf. im Stiftungsverzeichnis eingetragenen Namen mit Rechtsform (bei GbR: Angabe der weiteren Gesellschafter) an.",
+      "commercial_register_number": "Bitte geben Sie Ort und Nr. des Eintrags im Handels-, Genossenschafts- oder Vereinsregister, ggf. Nummer im Stiftungsverzeichnis, an.",
+      "company_name": "Bitte geben Sie den Namen des Geschäfts an, wenn er vom eingetragenen Namen in Feld 1 abweicht (z. B. Gaststätte zum grünen Baum, Friseur Haargenau).",
+      "family_name": "Bitte geben Sie Ihren Familiennamen an.",
+      "given_name": "Bitte geben Sie Ihren Vornamen an.",
+      "sex": "Geben Sie Ihr Geschlecht entsprechend der Eintragung in der Geburtsurkunde an (männlich, weiblich, divers, ohne Angabe).",
+      "birth_name": "Bitte geben Sie Ihren Geburtsnamen an (nur bei Abweichung vom Familiennamen, zum überspringen Enter drücken).",
+      "birth_date": "Bitte geben Sie Ihr Geburtsdatum (TT.MM.JJJJ) an.",
+      "birth_place": "Bitte geben Sie Ihren Geburtsort und -land an.",
+      "nationality": "Haben Sie die Deutsche Staatsangehörigkeit? (ja/nein)",
+      "other_nationality": "Bitte geben Sie Ihre andere Staatsangehörigkeit an.",
+      "address": "Bitte geben Sie die Anschrift Ihrer Wohnung (Straße, Hausnummer, Postleitzahl, Ort) an.",
+      "phone": "Bitte geben Sie Ihre (Mobil-)Telefonnummer an.",
+      "fax": "Bitte geben Sie Ihre Fax-Nummer an (optional, zum überspringen Enter drücken).",
+      "email": "Bitte geben Sie Ihre E-Mail-Adresse an.",
+      "website": "Bitte geben Sie Ihre Internetadresse an (optional, zum überspringen Enter drücken).",
+      "num_partners": "Bitte geben Sie die Zahl der geschäftsführenden Gesellschafter an (nur bei Personengesellschaften).",
+      "num_representatives": "Bitte geben Sie die Zahl der gesetzlichen Vertreter an (nur bei juristischen Personen).",
+      "public_participation": "Liegt eine Beteiligung der öffentlichen Hand vor (ja, nein, nicht bekannt).",
+      "representative_name": "Bitte geben Sie Name und Vornamen der vertretungsberechtigten Person/Betriebsleiter an (nur bei inländischen Aktiengesellschaften, Zweigniederlassungen und unselbstständigen Zweigstellen).",
+      "representative_address": "Bitte geben Sie die Anschrift der Betriebsstätte an.",
+      "rep_phone": "Bitte geben Sie die Telefonnummer der Betriebsstätte an.",
+      "rep_fax": "Bitte geben Sie die Fax-Nummer der Betriebsstätte an (optional, zum überspringen Enter drücken).",
+      "rep_email": "Bitte geben Sie die E-Mail-Adresse der Betriebsstätte an.",
+      "rep_website": "Bitte geben Sie die Internetadresse der Betriebsstätte an.",
+      "main_branch_address": "Bitte geben Sie die Anschrift der Hauptniederlassung (falls Betriebsstätte lediglich Zweigniederlassung oder unselbstständige Zweigstelle ist, zum überspringen Enter drücken).",
+      "main_branch_phone": "Bitte geben Sie die Telefonnummer der Hauptniederlassung an.",
+      "main_branch_fax": "Bitte geben Sie die Fax-Nummer der Hauptniederlassung an.",
+      "main_branch_email": "Bitte geben Sie die E-Mail-Adresse der Hauptniederlassung an.",
+      "main_branch_website": "Bitte geben Sie die Internetadresse der Hauptniederlassung an.",
+      "previous_branch_address": "Bitte geben Sie die Anschrift der früheren Betriebsstätte an (Nur falls es sich nicht um eine Neugründung handelt.).",
+      "previous_branch_phone": "Bitte geben Sie die Telefonnummer der früheren Betriebsstätte an.",
+      "previous_branch_fax": "Bitte geben Sie die Fax-Nummer der früheren Betriebsstätte an.",
+      "previous_branch_email": "Bitte geben Sie die E-Mail-Adresse der früheren Betriebsstätte an.",
+      "previous_branch_website": "Bitte geben Sie die Internetadresse der früheren Betriebsstätte an.",
+      "activity": "Bitte geben Sie die angemeldete Tätigkeit an (bitte genau beschreiben).",
+      "secondary_operation": "Wird die Tätigkeit im Nebenerwerb betrieben (ja, nein).",
+      "start_date": "Bitte geben Sie das Datum des Beginns der angemeldeten Tätigkeit (TT.MM.JJJJ) an.",
+      "business_type": "Bitte geben Sie die Art des angemeldeten Betriebs an (Industrie, Handwerk, Handel, Sonstiges).",
+      "employees_full_time": "Bitte geben Sie die Zahl der bei Geschäftsaufnahme tätigen Vollzeitkräfte an.",
+      "employees_part_time": "Bitte geben Sie die Zahl der bei Geschäftsaufnahme tätigen Teilzeitkräfte an.",
+      "employees_none": "Werden weitere Mitarbeiter beschäftigt (einschließlich Aushilfen, Ehe- oder Lebenspartner des Inhabers; ohne Inhaber)?",
+      "registration_for": "Bitte kreuzen Sie an, für welche Betriebsform die Anmeldung erstattet wird (Hauptniederlassung, Zweigniederlassung, unselbstständige Zweigstelle, Reisegewerbe):",
+      "reason": "Bitte geben Sie den Grund der Neuerrichtung/Übernahme an.",
+      "previous_business_name": "Bitte geben Sie den Namen des früheren Gewerbetreibenden oder früheren Firmennamen an.",
+      "insurance_provider": "Bitte geben Sie den bisherigen gesetzlichen Unfallversicherungsträger an.",
+      "insurance_unknown": "Bitte kreuzen Sie an, wenn der Versicherungsträger nicht bekannt ist.",
+      "membership_number": "Bitte geben Sie Ihre Mitgliedsnummer an.",
+      "membership_unknown": "Ist Ihnen die Mitgliedsnummer des bisherigen gesetzlichen Unfallversicherungsträgers bekannt?",
+      "permit": "Liegt eine Erlaubnis vor?",
+      "permit_date": "Bitte geben Sie das Ausstellungsdatum der Erlaubnis (TT.MM.JJJJ) an.",
+      "permit_office": "Bitte geben Sie die erteilende Behörde der Erlaubnis an.",
+      "handwerkskarte": "Liegt eine Handwerkskarte vor.",
+      "handwerkskarte_details": "Bitte geben Sie Ausstellungsdatum und Name der Handwerkskammer an.",
+      "residence_permit": "Liegt ein Aufenthaltstitel vor?",
+      "residence_permit_details": "Bitte geben Sie Ausstellungsdatum und erteilende Behörde des Aufenthaltstitels an.",
+      "permit_restriction": "Enthält der Aufenthaltstitel eine Auflage/Beschränkung?",
+      "restriction_details": "Bitte geben Sie die Angabe der Auflage und/oder Beschränkungen an.",
+      "application_date": "Bitte geben Sie das Datum der Anmeldung (TT.MM.JJJJ) an."
+        }
+    },
+  "validators": "GewerbeanmeldungValidators",
+  "pdf_file": "pdfs/Gewerbeanmeldung.pdf"
+}

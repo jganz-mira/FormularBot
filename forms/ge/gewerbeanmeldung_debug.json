@@ -13,6 +13,18 @@
       "filed_name":"txtEintragungsortS1"
     },
     {
+      "slot_name":"company_name",
+      "slot_type":"text",
+      "description":"Name des Geschäfts, wenn er vom eingetragenen Namen in Feld 1 abweicht (Geschäftsbezeichnung: z. B. Gaststätte zum grünen Baum,Friseur Haargenau)",
+      "filed_name":"txtNameGeschaeftS1"
+    },
+    {
+      "slot_name":"family_name",
+      "slot_type":"text",
+      "description":"Familienname; Nachname",
+      "filed_name":"txtFamiliennameS1"
+    },
+    {
       "slot_name":"sex",
       "slot_type":"choice", 
       "choices":["männlich","weiblich","divers","ohne Angabe"], 
@@ -51,6 +63,8 @@
     "de": {
       "registered_name": "Bitte geben Sie im Handels-, Genossenschafts- oder Vereinsregister, ggf. im Stiftungsverzeichnis eingetragener Name mit Rechtsform (bei GbR: Angabe der weiteren Gesellschafter) ein:",
       "commercial_register_number": "Bitte geben Sie Ort und Nr. des Eintrags im Handels-, Genossenschaftsoder Vereinsregister, ggf. Nummer im Stiftungsverzeichnis ein:",
+      "company_name":"Name des Geschäfts, wenn er vom eingetragenen Namen in Feld 1 abweicht (Geschäftsbezeichnung: z. B. Gaststätte zum grünen Baum, Friseur Haargenau)",
+      "family_name":"Wie lautet Ihr Familienname?",
       "sex": "Bitte geben Sie Ihr Geschlecht entsprechend der Eintragung in Ihrer Geburtsurkunde an (männlich, weiblich, divers, ohne Angabe)",
       "permit": "Liegt eine Erlaubnis vor?",
       "permit_date": "Wann wurde die Erlaubnis ausgestellt (Datum bitte als TT.MM.JJJJ angeben).",
