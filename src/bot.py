@@ -6,6 +6,7 @@ from .bot_helper import load_forms, next_slot_index, print_summary, map_yes_no_t
 from .llm_validator_service import LLMValidatorService
 from openai import OpenAI
 from gradio import ChatMessage
+from .pdf_backend import GenericPdfFiller
 
 
 validator_map = {
@@ -254,6 +255,10 @@ def chatbot_fn(
         save_responses_to_json(state=state, output_path="out/out.json")
         print_summary(state = state, forms = FORMS)
         state = None
+
+        # write pdf file
+        # currently this is written to a fixed files
+        GenericPdfFiller(json_path="out/out.json").fill(output_path='out/out.pdf')
 
     return history, state, ""
 
