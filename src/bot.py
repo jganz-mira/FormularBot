@@ -95,9 +95,6 @@ def chatbot_fn(
             "idx": 0,            # pointer into the slots list
             "pdf_file": None     # path to the pdf file for later overwrite
         }
-
-    print(state)
-
     msg_low = (message or "").lower()
     # --- Classify Edit intent via LLM classification ---
     if state.get("form_type") and message and any(cmd in msg_low for cmd in EDIT_CMDS):
@@ -188,7 +185,7 @@ def chatbot_fn(
         slot_name = slot_def["slot_name"]
         slot_type  = slot_def["slot_type"]
         target_filed_name = slot_def.get("filed_name",None)
-
+        check_box_condition = slot_def.get("check_box_condition",None)
         # CHOICE slot handling
         if slot_type== "choice":
             if not valid_choice_slot(message, slot_def):
@@ -200,9 +197,13 @@ def chatbot_fn(
                 return history, state, ""
             # map to canonical choice
             selection = None
-            if message.isdigit():
-                selection = slot_def["choices"][int(message)-1]
+
+            # interpret user input as index
+            if message.strip().rstrip(".").isdigit():
+                number = message.strip().rstrip(".").isdigit()
+                selection = slot_def["choices"][int(number)-1]
             else:
+            # interpret user input as text
                 for o in slot_def["choices"]:
                     if message.strip().lower() == o.lower():
                         selection = o
@@ -214,7 +215,7 @@ def chatbot_fn(
                 value = map_yes_no_to_bool(selection)
             else:
                 value = selection
-            state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name, "choices": slot_def['choices']}
+            state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name, "choices": slot_def['choices'], "check_box_condition":check_box_condition}
 
         # TEXT slot handling
         elif slot_type== "text":

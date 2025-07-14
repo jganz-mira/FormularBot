@@ -26,12 +26,16 @@ class GenericPdfFiller:
             value   = details.get("value")
             targets = details.get("target_filed_name")
             choices = details.get("choices")
+            check_box_condition = details.get("check_box_condition")
             if choices:
                 for idx, fn in enumerate(targets):
                     # Wahrheits-Abgleich
                     if isinstance(value, str) and value.lower() in ("true","false"):
-                        val_bool = value.lower() in ("true","ja","yes","1","on")
-                        selected = (val_bool and idx==0) or (not val_bool and idx==1)
+                        if check_box_condition is not None:
+                            selected = value.lower() == check_box_condition
+                        else:
+                            val_bool = value.lower() in ("true","ja","yes","1","on")
+                            selected = (val_bool and idx==0) or (not val_bool and idx==1)
                     else:
                         selected = str(value).strip().lower() == str(choices[idx]).lower()
                     if selected:

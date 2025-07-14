@@ -111,12 +111,14 @@ def save_responses_to_json(state: dict, output_path: str):
         value = details.get("value")
         target = details.get("target_filed_name")
         choices = details.get("choices",None)
+        check_box_condition = details.get("check_box_condition",None)
         # Nur Slot eintragen, wenn mindestens value vorhanden ist
         if value is not None:
             out_data[slot_name] = {
                 "value": value,
                 "target_filed_name": target,
-                "choices": choices
+                "choices": choices,
+                "check_box_condition": check_box_condition
             }
 
     result = {
