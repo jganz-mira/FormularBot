@@ -58,8 +58,8 @@ def valid_choice_slot(message: str, slot_def: Dict[str, Any]) -> bool:
     text = message.strip()
 
     # 1) Digit input as index?
-    if text.isdigit():
-        idx = int(text) - 1
+    if text.rstrip(".").isdigit():
+        idx = int(text.rstrip(".")) - 1
         if 0 <= idx < len(choices):
             return True
 
@@ -200,7 +200,7 @@ def chatbot_fn(
 
             # interpret user input as index
             if message.strip().rstrip(".").isdigit():
-                number = message.strip().rstrip(".").isdigit()
+                number = message.strip().rstrip(".")
                 selection = slot_def["choices"][int(number)-1]
             else:
             # interpret user input as text
