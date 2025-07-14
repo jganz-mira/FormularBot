@@ -179,7 +179,7 @@ def chatbot_fn(
     cur_idx = next_slot_index(slots_def, state["responses"], state["idx"])
 
     if message is not None and cur_idx is not None:
-        # history.append(ChatMessage(role="user", content=message)) # To show user message in chat history
+        history.append(ChatMessage(role="user", content=message)) # To show user message in chat history
         # get the info of the current slot
         slot_def   = slots_def[cur_idx]
         slot_name = slot_def["slot_name"]
@@ -192,7 +192,7 @@ def chatbot_fn(
                 # re-prompt with options if invalid
                 opts = slot_def["choices"]
                 opt_text = "\n".join(f"{i+1}. {o}" for i, o in enumerate(opts))
-                history.append(ChatMessage(role='user',content=message)) # show waht user typed
+                # history.append(ChatMessage(role='user',content=message)) # show waht user typed
                 history.append(ChatMessage(role='assistant',content=f"Ungültige Auswahl. Bitte wählen:\n{opt_text}"))
                 return history, state, ""
             # map to canonical choice
@@ -215,6 +215,7 @@ def chatbot_fn(
                 value = map_yes_no_to_bool(selection)
             else:
                 value = selection
+            # history.append(ChatMessage(role='user', content = message))
             state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name, "choices": slot_def['choices'], "check_box_condition":check_box_condition}
 
         # TEXT slot handling
