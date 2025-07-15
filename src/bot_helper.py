@@ -42,6 +42,12 @@ def next_slot_index(
                 prev_val = responses.get(cond["slot_name"])
                 if prev_val['value'] == "":
                     continue
+            # if the slot_value contains a list, then the conditional slot will only be active if the the
+            # slot_value of the other filed is in this list
+            elif isinstance(cond['slot_value'], list):
+                prev_val = responses.get(cond["slot_name"])
+                if prev_val['value'] not in cond["slot_value"]:
+                    continue
             # fallback condition, check for equality to "slot_value" defined in json
             else:
                 prev_val = responses.get(cond["slot_name"])
