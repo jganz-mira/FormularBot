@@ -211,7 +211,12 @@ def chatbot_fn(
 
             # If yes/no filed, map to true/false to make it more independent against language
             choices = slot_def["choices"]
-            if set(opt.lower() for opt in choices) == {"ja", "nein"}:
+            # if set(opt.lower() for opt in choices) == {"ja", "nein"}:
+            #     value = map_yes_no_to_bool(selection)
+            lower_choices = {opt.lower() for opt in choices}
+            selection_lc = selection.lower()
+            # ja and nein are mapped to true false regardless of which other choices are present
+            if {"ja", "nein"} & lower_choices and selection_lc in {"ja", "nein"}:
                 value = map_yes_no_to_bool(selection)
             else:
                 value = selection
