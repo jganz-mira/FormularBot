@@ -37,6 +37,7 @@ def next_slot_index(
         cond = slot_def.get("condition")
         # if a condition is defined, skip unless it's fulfilled
         if cond:
+            assert responses.get(cond["slot_name"]) is not None, "The slot on which a slot is conditioned needs to be asked first!"
             # here one can define other "conditions" to check for
             if cond["slot_value"] == 'not empty':
                 prev_val = responses.get(cond["slot_name"])
