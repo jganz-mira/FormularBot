@@ -167,25 +167,41 @@
       "slot_name": "main_branch_phone",
       "slot_type": "text",
       "description": "Tel.-Nr. der Hauptniederlassung",
-      "filed_name": "txtTel3S1"
+      "filed_name": "txtTel3S1",
+      "condition": {
+        "slot_name": "main_branch_address",
+        "slot_value": "not empty"
+      }
     },
     {
       "slot_name": "main_branch_fax",
       "slot_type": "text",
       "description": "Fax-Nr. der Hauptniederlassung",
-      "filed_name": "txtFax3S1"
+      "filed_name": "txtFax3S1",
+      "condition": {
+        "slot_name": "main_branch_address",
+        "slot_value": "not empty"
+      }
     },
     {
       "slot_name": "main_branch_email",
       "slot_type": "text",
       "description": "E-Mail der Hauptniederlassung",
-      "filed_name": "txtMail3S1"
+      "filed_name": "txtMail3S1",
+      "condition": {
+        "slot_name": "main_branch_address",
+        "slot_value": "not empty"
+      }
     },
     {
       "slot_name": "main_branch_website",
       "slot_type": "text",
       "description": "Internet der Hauptniederlassung",
-      "filed_name": "txtInternet3S1"
+      "filed_name": "txtInternet3S1",
+      "condition": {
+        "slot_name": "main_branch_address",
+        "slot_value": "not empty"
+      }
     },
     {
       "slot_name": "previous_branch_address",
@@ -197,7 +213,11 @@
       "slot_name": "previous_branch_phone",
       "slot_type": "text",
       "description": "Tel.-Nr. der früheren Betriebsstätte",
-      "filed_name": "txtTel4S1"
+      "filed_name": "txtTel4S1",
+      "condition": {
+        "slot_name": "previous_branch_address",
+        "slot_value": "not empty"
+      }
     },
     {
       "slot_name": "previous_branch_fax",
@@ -209,18 +229,26 @@
       "slot_name": "previous_branch_email",
       "slot_type": "text",
       "description": "E-Mail der früheren Betriebsstätte",
-      "filed_name": "txtMail4S1"
+      "filed_name": "txtMail4S1",
+      "condition": {
+        "slot_name": "previous_branch_address",
+        "slot_value": "not empty"
+      }
     },
     {
       "slot_name": "previous_branch_website",
       "slot_type": "text",
       "description": "Internet der früheren Betriebsstätte",
-      "filed_name": "txtInternet4S1"
+      "filed_name": "txtInternet4S1",
+      "condition": {
+        "slot_name": "previous_branch_address",
+        "slot_value": "not empty"
+      }
     },
     {
       "slot_name": "activity",
       "slot_type": "text",
-      "description": "Angemeldete Tätigkeit",
+      "description": "Angemeldete Tätigkeit; Tätigkeit welche der in der Gewerbeanmeldung angemeldete Betrieb ausüben wird",
       "filed_name": "txtAngemeldetS2"
     },
     {
@@ -246,8 +274,9 @@
     {
       "slot_name": "employees_none",
       "slot_type": "choice",
-      "choices": ["keine"],
-      "description": "Keine Mitarbeiter",
+      "choices": ["ja","nein"],
+      "check_box_condition":"false",
+      "description": "Werden weitere Mitarbeiter beschäftigt",
       "filed_name": ["chkZahlPersonenS2"]
     },
     {
@@ -257,7 +286,7 @@
       "filed_name": "txtVollS2",
       "condition": {
         "slot_name": "employees_none",
-        "slot_value": false
+        "slot_value": "true"
       }
     },
     {
@@ -267,7 +296,7 @@
       "filed_name": "txtTeilS2",
       "condition": {
         "slot_name": "employees_none",
-        "slot_value": false
+        "slot_value": "true"
       }
     },
     {
@@ -295,7 +324,33 @@
       "slot_name": "previous_business_name",
       "slot_type": "text",
       "description": "Name des früheren Gewerbetreibenden oder früherer Firmenname",
-      "filed_name": "txtNameS2"
+      "filed_name": "txtNameS2",
+      "condition": {
+        "slot_name": "reason",
+        "slot_value": [
+          "Wiedereröffnung nach Verlegung aus einem anderen Meldebezirk",
+          "Übergang nach dem Umwandlungsgesetz",
+          "Wechsel der Rechtsform",
+          "Gesellschaftereintritt",
+          "Übernahme (Erbfolge/Kauf/Pacht)"]
+        }
+      },
+    {
+      "slot_name": "insurance_unknown",
+      "slot_type": "choice",
+      "choices": ["ja","nein"],
+      "description": "Versicherungsträger nicht bekannt",
+      "filed_name": ["chkNicht1S2"],
+      "check_box_condition":"false",
+      "condition":{
+        "slot_name":"reason",
+        "slot_value": [
+          "Wiedereröffnung nach Verlegung aus einem anderen Meldebezirk",
+          "Übergang nach dem Umwandlungsgesetz",
+          "Wechsel der Rechtsform",
+          "Gesellschaftereintritt",
+          "Übernahme (Erbfolge/Kauf/Pacht)"]
+      }
     },
     {
       "slot_name": "insurance_provider",
@@ -304,15 +359,25 @@
       "filed_name": "txtVersicherungS2",
       "condition": {
         "slot_name": "insurance_unknown",
-        "slot_value": false
+        "slot_value": "true"
       }
     },
     {
-      "slot_name": "insurance_unknown",
+      "slot_name": "membership_unknown",
       "slot_type": "choice",
-      "choices": ["nicht bekannt"],
-      "description": "Versicherungsträger nicht bekannt",
-      "filed_name": ["chkNicht1S2"]
+      "choices": ["ja","nein"],
+      "description": "Angabe des bisherigen Mitgliedsnummer bei der gesetzlichen Unfallversicherung",
+      "filed_name": ["chkNicht2S2"],
+      "check_box_condition":"false",
+      "condition":{
+        "slot_name":"reason",
+        "slot_value": [
+          "Wiedereröffnung nach Verlegung aus einem anderen Meldebezirk",
+          "Übergang nach dem Umwandlungsgesetz",
+          "Wechsel der Rechtsform",
+          "Gesellschaftereintritt",
+          "Übernahme (Erbfolge/Kauf/Pacht)"]
+      }
     },
     {
       "slot_name": "membership_number",
@@ -321,15 +386,8 @@
       "filed_name": "txtMitgliedS2",
       "condition": {
         "slot_name": "membership_unknown",
-        "slot_value": false
+        "slot_value": "true"
       }
-    },
-    {
-      "slot_name": "membership_unknown",
-      "slot_type": "choice",
-      "choices": ["nicht bekannt"],
-      "description": "Angabe des bisherigen Mitgliedsnummer bei der gesetzlichen Unfallversicherung",
-      "filed_name": ["chkNicht2S2"]
     },
     {
       "slot_name": "permit",
@@ -345,7 +403,7 @@
       "filed_name": "txtAusstellungsdat1S2",
       "condition": {
         "slot_name": "permit",
-        "slot_value": "ja"
+        "slot_value": "true"
       }
     },
     {
@@ -355,7 +413,7 @@
       "filed_name": "txtAusstellungsdat1S2",
       "condition": {
         "slot_name": "permit",
-        "slot_value": "ja"
+        "slot_value": "true"
       }
     },
     {
@@ -366,30 +424,50 @@
       "filed_name": ["chkAnlageA1S2","chkAnlageA2S2"]
     },
     {
-      "slot_name": "handwerkskarte_details",
+      "slot_name": "handwerkskarte_date",
       "slot_type": "text",
-      "description": "Ausstellungsdatum und Name der Handwerkskammer",
+      "description": "Ausstellungsdatum der Handwerkskarte",
       "filed_name": "txtAusstellungsdat2S2",
       "condition": {
         "slot_name": "handwerkskarte",
-        "slot_value": "ja"
+        "slot_value": "true"
+      }
+    },
+    {
+      "slot_name": "handwerkskarte_office",
+      "slot_type": "text",
+      "description": "Handwerkskammer welche die Handwerkskarte ausgestellt hat",
+      "filed_name": "txtAusstellungsdat2S2",
+      "condition": {
+        "slot_name": "handwerkskarte",
+        "slot_value": "true"
       }
     },
     {
       "slot_name": "residence_permit",
       "slot_type": "choice",
-      "choices": ["ja", "nein"],
+      "choices": ["ja", "nein","nicht anwendbar"],
       "description": "Liegt ein Aufenthaltstitel vor?",
       "filed_name": ["chkAufenthalt1S2","chkAufenthalt2S2"]
     },
     {
-      "slot_name": "residence_permit_details",
+      "slot_name": "residence_permit_date",
       "slot_type": "text",
-      "description": "Ausstellungsdatum und erteilende Behörde des Aufenthaltstitels",
+      "description": "Ausstellungsdatum des Aufenthaltstitels",
       "filed_name": "txtAusstellungsdat3S2",
       "condition": {
         "slot_name": "residence_permit",
-        "slot_value": "ja"
+        "slot_value": "true"
+      }
+    },
+    {
+      "slot_name": "residence_permit_office",
+      "slot_type": "text",
+      "description": "Ausstellungs Behörde des Aufenthaltstitels; Wer den Aufenthaltstitel ausgestellt hat",
+      "filed_name": "txtAusstellungsdat3S2",
+      "condition": {
+        "slot_name": "residence_permit",
+        "slot_value": "true"
       }
     },
     {
@@ -397,7 +475,11 @@
       "slot_type": "choice",
       "choices": ["ja", "nein"],
       "description": "Enthält der Aufenthaltstitel eine Auflage/Beschränkung?",
-      "filed_name": ["chkAuflage1S2","chkAuflage2S2"]
+      "filed_name": ["chkAuflage1S2","chkAuflage2S2"],
+      "condition": {
+        "slot_name": "residence_permit",
+        "slot_value": "true"
+      }
     },
     {
       "slot_name": "restriction_details",
@@ -406,7 +488,7 @@
       "filed_name": "txtAuflageS2",
       "condition": {
         "slot_name": "permit_restriction",
-        "slot_value": "ja"
+        "slot_value": "true"
       }
     },
     {
@@ -464,14 +546,15 @@
       "reason": "Bitte geben Sie den Grund der Neuerrichtung/Übernahme an.",
       "previous_business_name": "Bitte geben Sie den Namen des früheren Gewerbetreibenden oder früheren Firmennamen an.",
       "insurance_provider": "Bitte geben Sie den bisherigen gesetzlichen Unfallversicherungsträger an.",
-      "insurance_unknown": "Bitte kreuzen Sie an, wenn der Versicherungsträger nicht bekannt ist.",
+      "insurance_unknown": "Ist Ihnen der Versicherungsträger der bisherigen gesetzlichen Unfallversicherung bekannt.",
       "membership_number": "Bitte geben Sie Ihre Mitgliedsnummer an.",
-      "membership_unknown": "Ist Ihnen die Mitgliedsnummer des bisherigen gesetzlichen Unfallversicherungsträgers bekannt?",
+      "membership_unknown": "Ist Ihnen der die Mitgliedsnummer der bisherigen gesetzlichen Unfallversicherung bekannt.",
       "permit": "Liegt eine Erlaubnis vor?",
       "permit_date": "Bitte geben Sie das Ausstellungsdatum der Erlaubnis (TT.MM.JJJJ) an.",
       "permit_office": "Bitte geben Sie die erteilende Behörde der Erlaubnis an.",
       "handwerkskarte": "Liegt eine Handwerkskarte vor.",
-      "handwerkskarte_details": "Bitte geben Sie Ausstellungsdatum und Name der Handwerkskammer an.",
+      "handwerkskarte_date": "Bitte geben Sie Ausstellungsdatum der Handwerkskarte an (TT.MM.JJJJ).",
+      "handwerkskarte_office": "Bitte geben Sie austellende Handwerkammer an.",
       "residence_permit": "Liegt ein Aufenthaltstitel vor?",
       "residence_permit_details": "Bitte geben Sie Ausstellungsdatum und erteilende Behörde des Aufenthaltstitels an.",
       "permit_restriction": "Enthält der Aufenthaltstitel eine Auflage/Beschränkung?",
