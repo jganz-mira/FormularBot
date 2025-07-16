@@ -17,21 +17,37 @@ def load_forms(form_path:str, validator_map:Dict[str,callable]):
 
 def next_slot_index(
     slots_def: List[Dict[str, Any]],
-    responses: Dict[str, str],
-    start_idx: int
-) -> Optional[int]:
+    state: Dict[str, Any]
+) -> Tuple[Optional[int], Dict[str, Any]]:
     """
-    Find the index of the next slot to ask, skipping those whose
-    'condition' (if any) is not met.
+    Determines the index of the next slot to ask based on the slot definitions
+    and current state, skipping slots whose 'condition' is not fulfilled.
+
+    If a slot has a 'condition', it will only be considered if the condition is met.
+    If the condition is not fulfilled, the slot will be skipped and assigned an
+    empty string as its value in the state to prevent assertion errors for dependent slots.
 
     Args:
-        slots_def: List of slot definition dicts.
-        responses: Dict mapping slot_name to previously given answers.
-        start_idx: The index to start searching from.
+        slots_def: A list of slot definition dictionaries. Each slot may include a 
+                   'condition' that determines whether it should be shown.
+        state: A dictionary containing:
+            - "idx" (int): the current index to start checking from,
+            - "responses" (Dict[str, Dict[str, str]]): previous answers,
+              where each key is a slot name, and the value is a dict with:
+                - "value" (str): the user's input,
+                - "target_filed_name" (str): the field name in the output.
 
     Returns:
-        The index of the next askable slot, or None if all slots are done.
+        A tuple containing:
+            - The index (int) of the next askable slot, or None if no such slot exists.
+            - The updated state dictionary.
     """
+
+    # current index to start searching from
+    start_idx = state["idx"]
+    responses = state["responses"]
+
+
     for i in range(start_idx, len(slots_def)):
         slot_def = slots_def[i]
         cond = slot_def.get("condition")
@@ -42,20 +58,28 @@ def next_slot_index(
             if cond["slot_value"] == 'not empty':
                 prev_val = responses.get(cond["slot_name"])
                 if prev_val['value'] == "":
+                    # If conditional slot is skipped, write an empty string so if another slot depends on that one, no assertion is triggered
+                    state["responses"][slot_def["slot_name"]] = {"value": "", "target_filed_name": slot_def["filed_name"]}
+                    # Afterward, we move on to the next slot
                     continue
+
             # if the slot_value contains a list, then the conditional slot will only be active if the the
             # slot_value of the other filed is in this list
             elif isinstance(cond['slot_value'], list):
                 prev_val = responses.get(cond["slot_name"])
                 if prev_val['value'] not in cond["slot_value"]:
+                    state["responses"][slot_def["slot_name"]] = {"value": "", "target_filed_name": slot_def["filed_name"]}
                     continue
             # fallback condition, check for equality to "slot_value" defined in json
             else:
                 prev_val = responses.get(cond["slot_name"])
                 if prev_val['value'] != cond["slot_value"]:
+                    state["responses"][slot_def["slot_name"]] = {"value": "", "target_filed_name": slot_def["filed_name"]}
                     continue
-        return i
-    return None
+        # return next slot index and the updated state
+        return i, state
+    # if there is no next slot (end of document), next slot index i is none
+    return None, state
 
 def print_summary(state: Dict[str, Any], forms: Dict[str, Any]) -> None:
     """

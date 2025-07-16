@@ -147,7 +147,7 @@ def chatbot_fn(
             history.append(ChatMessage(role="user", content=message)) # store user input in history
             history.append(ChatMessage(role="assistant", content=f"Sie haben das Formular **{message}** gewählt.")) # store bot output in history
             # immediately ask first slot
-            first_idx = next_slot_index(FORMS[message]["slots"], state["responses"], 0)
+            first_idx, state = next_slot_index(FORMS[message]["slots"], state)
             # slect the slots based on the chosen form, slot0_def contains the complete definition of the first slot
             slot0_def = FORMS[message]["slots"][first_idx]
             # get the prompt for the respective slot
@@ -176,7 +176,7 @@ def chatbot_fn(
     prompts    = form_conf["prompt_map"][state["lang"]] # get the promts the bot will utter from the form
     validators = form_conf["validators"] # get the respective validators from the from 
     # get next index
-    cur_idx = next_slot_index(slots_def, state["responses"], state["idx"])
+    cur_idx, state = next_slot_index(slots_def, state)
 
     if message is not None and cur_idx is not None:
         history.append(ChatMessage(role="user", content=message)) # To show user message in chat history
@@ -247,7 +247,7 @@ def chatbot_fn(
         # —————————————————————————————————————————————
 
     # --- Step 3: Ask next question or finish ---
-    next_idx = next_slot_index(slots_def, state["responses"], state["idx"])
+    next_idx, state = next_slot_index(slots_def, state)
     if next_idx is not None:
         next_slot_def   = slots_def[next_idx]
         next_slot_name = next_slot_def["slot_name"]
