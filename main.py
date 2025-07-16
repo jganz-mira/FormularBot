@@ -1,5 +1,5 @@
 import argparse
-from src.bot import chatbot_fn
+from src.bot import chatbot_fn, FORMS
 import os
 from gradio import ChatMessage
 # Beispiel mit Gradio:
@@ -7,6 +7,16 @@ import gradio as gr
 import uuid
 from src.bot_helper import save_responses_to_json
 from src.pdf_backend import GenericPdfFiller
+
+def initial_prompt() -> str:
+        """
+        Creates an initial prompt which will be uttered by the bot at startup
+        """
+        prompt = '**Willkommen beim Chatbot der Stadt Göppingen!** Ich werde Sie beim Ausfüllen eines gewünschten Formulars unterstützen. **Antworten Sie im Folgenden einfach per Text Eingabe in der Textbox**. Wenn Ihnen **mehrere Antwortmöglichkeiten** präsentiert werden, können Sie entweder die gewünschte **Antwort ausschreiben** oder die **Nummer der Antwort (1/1.) angeben**. **Optionale Felder** können Sie einfach durch Drücken der **Enter-Taste (leere Nachricht) überspringen**.\nWählen Sie aus den folgenden Formularen:\n'
+        available = sorted(list(FORMS.keys()))
+        # utter available forms to user
+        prompt += "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(available))
+        return prompt
 
 def make_and_get_pdf(state: dict) -> str:
     """
@@ -70,7 +80,7 @@ def main(**kwargs):
                    outputs=[chatbot, state, txt])
         demo.load(lambda: [ChatMessage(
             role='assistant',
-            content='Willkommen! Welches Formular möchten Sie ausfüllen?'
+            content=initial_prompt()
         )],
                   outputs=[chatbot])
         

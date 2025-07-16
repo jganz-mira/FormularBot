@@ -138,19 +138,33 @@ def chatbot_fn(
 
     # --- Step 1: Form selection ---
     if state["form_type"] is None: # if no form has been selected yet
-        available = list(FORMS.keys())
-        if message and message in available: # does the user input exactly match one of the listed forms?
+        available = sorted(list(FORMS.keys()))
+        # setup dict with available forms to handle selection by number
+        form_map = {idx+1:key for idx,key in enumerate(available)}
+        # utter available forms to user
+        if message in available or message.strip().rstrip(".").isdigit(): 
+            # Is the user input a number?
+            if message.strip().rstrip(".").isdigit():
+                form_number = int(message.strip().rstrip("."))
+                selected_form = form_map.get(form_number, False)
+                # if given number is invalid
+                if not selected_form:
+                    history.append(ChatMessage(role='assistant', content = f"Ungültige auswahl {selected_form}.\nWählen Sie ein Formular aus den folgenden aus:\n{prompt}"))
+                    return history, state, ""
+            # Does the user input exactly match the form name?
+            elif message in available:
+                selected_form = message
             # user selected a form
-            state["form_type"] = message
+            state["form_type"] = selected_form
             state["idx"] = 0
-            history.append(ChatMessage(role="user", content=message)) # store user input in history
-            history.append(ChatMessage(role="assistant", content=f"Sie haben das Formular **{message}** gewählt.")) # store bot output in history
+            history.append(ChatMessage(role="user", content=selected_form)) # store user input in history
+            history.append(ChatMessage(role="assistant", content=f"Sie haben das Formular **{selected_form}** gewählt.")) # store bot output in history
             # immediately ask first slot
-            first_idx, state = next_slot_index(FORMS[message]["slots"], state)
+            first_idx, state = next_slot_index(FORMS[selected_form]["slots"], state)
             # slect the slots based on the chosen form, slot0_def contains the complete definition of the first slot
-            slot0_def = FORMS[message]["slots"][first_idx]
+            slot0_def = FORMS[selected_form]["slots"][first_idx]
             # get the prompt for the respective slot
-            prompt0 = FORMS[message]["prompt_map"][state["lang"]][slot0_def["slot_name"]]
+            prompt0 = FORMS[selected_form]["prompt_map"][state["lang"]][slot0_def["slot_name"]]
             # if slot is of type choice, load available choices and list them
             if slot0_def["slot_type"] == "choice":
                 # append enumerated options
@@ -158,7 +172,7 @@ def chatbot_fn(
                 opt_lines = "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(opts))
                 prompt0 += "\n" + opt_lines
             # save the path to the template pdf file to the state
-            state["pdf_file"] = FORMS[message]["pdf_file"]
+            state["pdf_file"] = FORMS[selected_form]["pdf_file"]
             # add the fully formatted promt to history
             history.append(ChatMessage(role='assistant',content=prompt0))
             return history, state, ""
