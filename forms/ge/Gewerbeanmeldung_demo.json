@@ -1,0 +1,14 @@
+{
+  "slots": [
+    {
+      "slot_name": "main_branch_address",
+      "slot_type": "text",
+      "description": "Hauptniederlassung Anschrift",
+      "filed_name": "txtHauptS1"
+    }],
+  "prompt_map": {
+    "de": {
+      "main_branch_address": "Bitte geben Sie die Anschrift der Hauptniederlassung (falls Betriebsstätte lediglich Zweigniederlassung oder unselbstständige Zweigstelle ist, zum überspringen Enter drücken)."}},
+  "validators": "GewerbeanmeldungValidators",
+  "pdf_file":"pdfs/Gewerbeanmeldung.pdf"
+  }
