@@ -1,8 +1,33 @@
 import argparse
 from src.bot import chatbot_fn
+import os
 from gradio import ChatMessage
 # Beispiel mit Gradio:
 import gradio as gr
+import uuid
+from src.bot_helper import save_responses_to_json
+from src.pdf_backend import GenericPdfFiller
+
+def make_and_get_pdf(state: dict) -> str:
+    """
+    Saves the current conversation state to a JSON file and fills a PDF based on it.
+    Returns the path to the generated PDF.
+    """
+    # Ensure output directory exists
+    os.makedirs("out", exist_ok=True)
+
+    # Unique filenames per session
+    uid = uuid.uuid4().hex
+    json_fname = f"out/{uid}.json"
+    pdf_fname = f"out/{uid}.pdf"
+
+    # 1) Save responses to JSON
+    save_responses_to_json(state=state, output_path=json_fname)
+
+    # 2) Fill PDF using the JSON
+    GenericPdfFiller(json_path=json_fname).fill(output_path=pdf_fname)
+
+    return pdf_fname
 
 def parse_args():
     """
@@ -17,17 +42,28 @@ def parse_args():
     parser.add_argument("--debug",
         action = "store_true",
         help="Enable debugging output in the terminal")
+    
+    parser.add_argument(
+        "--enable-download",
+        action="store_true",
+        help="Enable PDF download button in the UI")
+    
     return vars(parser.parse_args())
 
 def main(**kwargs):
 
     share = kwargs.get("share", False)
     debug = kwargs.get("debug", False)
+    enable_download = kwargs.get("enable_download", False)
+
 
     with gr.Blocks() as demo:
         chatbot = gr.Chatbot(type='messages')
         state = gr.State(value=None)
         txt = gr.Textbox(placeholder="Hier tippen...")
+
+        download_btn = gr.Button("PDF erzeugen & herunterladen", visible=False)
+        pdf_file     = gr.File(label="Dein ausgefülltes Formular", visible=False)
 
         txt.submit(chatbot_fn, 
                    inputs=[txt, chatbot, state],
@@ -37,6 +73,23 @@ def main(**kwargs):
             content='Willkommen! Welches Formular möchten Sie ausfüllen?'
         )],
                   outputs=[chatbot])
+        
+        if enable_download:
+            state.change(
+                lambda s: (
+                    gr.update(visible=bool(s.get("completed"))),
+                    gr.update(visible=bool(s.get("completed")))
+                ),
+                inputs=[state],
+                outputs=[download_btn, pdf_file]
+            )
+
+            # PDF-Generierung & Download
+            download_btn.click(
+                make_and_get_pdf,
+                inputs=[state],
+                outputs=[pdf_file]
+            )
 
     demo.launch(debug=debug, share=share)
 

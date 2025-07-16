@@ -258,13 +258,7 @@ def chatbot_fn(
         history.append(ChatMessage(role='assistant',content=prompt))
     else:
         history.append(ChatMessage(role='assistant',content="Vielen Dank! Das Formular ist abgeschlossen."))
-        save_responses_to_json(state=state, output_path="out/out.json")
         print_summary(state = state, forms = FORMS)
-        state = None
-
-        # write pdf file
-        # currently this is written to a fixed files
-        GenericPdfFiller(json_path="out/out.json").fill(output_path='out/out.pdf')
-
+        state['completed'] = True
     return history, state, ""
 
