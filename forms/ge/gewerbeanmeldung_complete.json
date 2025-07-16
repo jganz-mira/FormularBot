@@ -223,7 +223,11 @@
       "slot_name": "previous_branch_fax",
       "slot_type": "text",
       "description": "Fax-Nr. der früheren Betriebsstätte",
-      "filed_name": "txtFax4S1"
+      "filed_name": "txtFax4S1",
+      "condition": {
+        "slot_name": "previous_branch_address",
+        "slot_value": "not empty"
+      }
     },
     {
       "slot_name": "previous_branch_email",
