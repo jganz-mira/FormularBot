@@ -241,7 +241,7 @@ def chatbot_fn(
             fn = getattr(validators, f"valid_{slot_name}", None) # dynamically get a validator for the current filed if there is one
             if fn and not fn(message): # if there is a function and the function returned false
                 history.append(ChatMessage(role='user',content=message))
-                history.append(ChatMessage(role='assistant',content=f"Ungültige Eingabe für **{slot_name}**. Bitte erneut:"))
+                history.append(ChatMessage(role='assistant',content=f"Ungültige Eingabe. Bitte erneut:"))
                 return history, state, ""
             state["responses"][slot_name] = {"value" : message, "target_filed_name": target_filed_name}
 
