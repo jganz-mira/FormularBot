@@ -425,7 +425,11 @@
       "slot_type": "choice",
       "choices": ["ja", "nein"],
       "description": "Liegt eine Handwerkskarte vor?",
-      "filed_name": ["chkAnlageA1S2","chkAnlageA2S2"]
+      "filed_name": ["chkAnlageA1S2","chkAnlageA2S2"],
+      "condition": {
+        "slot_name": "business_type",
+        "slot_value": "Handwerk"
+      }
     },
     {
       "slot_name": "handwerkskarte_date",
@@ -553,7 +557,7 @@
       "handwerkskarte": "Liegt eine Handwerkskarte vor.",
       "handwerkskarte_date": "Bitte geben Sie Ausstellungsdatum der Handwerkskarte an (TT.MM.JJJJ).",
       "handwerkskarte_office": "Bitte geben Sie austellende Handwerkammer an.",
-      "residence_permit": "Liegt ein Aufenthaltstitel vor?",
+      "residence_permit": "**Nur für Aussländer, die einen Aufenthaltstitel benötigen**: Liegt ein Aufenthaltstitel vor?",
       "residence_permit_details": "Bitte geben Sie Ausstellungsdatum und erteilende Behörde des Aufenthaltstitels an.",
       "permit_restriction": "Enthält der Aufenthaltstitel eine Auflage/Beschränkung?",
       "restriction_details": "Bitte geben Sie die Angabe der Auflage und/oder Beschränkungen an."
