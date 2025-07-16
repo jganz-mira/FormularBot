@@ -8,12 +8,6 @@ from openai import OpenAI
 from gradio import ChatMessage
 from .pdf_backend import GenericPdfFiller
 
-
-validator_map = {
-    "BaseValidators": BaseValidators,
-    "GewerbeanmeldungValidators": GewerbeanmeldungValidators,
-}
-
 # form_path = "../forms/ge"   # Passe ggf. den Pfad an
 # Basisverzeichnis bestimmen
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -27,6 +21,11 @@ try:
         os.environ.setdefault("OPENAI_API_KEY", api_key)
 except FileNotFoundError:
     raise RuntimeError(f"OpenAI key file not found at {key_path}")
+
+validator_map = {
+    "BaseValidators": BaseValidators,
+    "GewerbeanmeldungValidators": GewerbeanmeldungValidators(),
+}
 
 FORMS = load_forms(
     form_path = forms_path,
