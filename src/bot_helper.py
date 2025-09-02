@@ -111,7 +111,8 @@ def print_summary(state: Dict[str, Any], forms: Dict[str, Any]) -> None:
             slot_name = sd
 
         # Label aus prompt_map holen (fallback auf slot_name)
-        label = form_conf["prompt_map"][lang].get(slot_name, slot_name)
+        # label = form_conf["prompt_map"][lang].get(slot_name, slot_name)
+        label = sd.get('prompt')
         # Antwort aus responses (falls nicht vorhanden, Hinweis ausgeben)
         answer = responses.get(slot_name, "(nicht ausgefüllt)")
 

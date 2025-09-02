@@ -125,7 +125,7 @@ def chatbot_fn(
                 # Auf den zu bearbeitenden Slot springen
                 state['idx'] = edit_idx
                 # Prompt für diesen Slot neu stellen
-                prompt = FORMS[state['form_type']]['prompt_map'][state['lang']][slot_key]
+                prompt = FORMS[state['form_type']]['slots'][edit_idx].get('prompt', FORMS[state['form_type']]['slots'][edit_idx].get('description', ''))
                 # Falls Choice-Slot, Optionen anhängen
                 slot_def = slots_def[edit_idx]
                 if slot_def['slot_type'] == 'choice':
@@ -164,7 +164,7 @@ def chatbot_fn(
             # slect the slots based on the chosen form, slot0_def contains the complete definition of the first slot
             slot0_def = FORMS[selected_form]["slots"][first_idx]
             # get the prompt for the respective slot
-            prompt0 = FORMS[selected_form]["prompt_map"][state["lang"]][slot0_def["slot_name"]]
+            prompt0 = slot0_def.get('prompt', slot0_def.get('description', ''))
             # if slot is of type choice, load available choices and list them
             if slot0_def["slot_type"] == "choice":
                 # append enumerated options
@@ -186,7 +186,6 @@ def chatbot_fn(
     # here we already have a from selected
     form_conf  = FORMS[state["form_type"]] # get the selected formtype from state
     slots_def  = form_conf["slots"] # get the slots from the selecetd form
-    prompts    = form_conf["prompt_map"][state["lang"]] # get the promts the bot will utter from the form
     validators = form_conf["validators"] # get the respective validators from the from 
     # get next index
     cur_idx, state = next_slot_index(slots_def, state)
@@ -234,7 +233,13 @@ def chatbot_fn(
             else:
                 value = selection
             # history.append(ChatMessage(role='user', content = message))
-            state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name, "choices": slot_def['choices'], "check_box_condition":check_box_condition}
+            # for choices regarding boxes
+            if check_box_condition:
+                state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name, "choices": slot_def['choices'], "check_box_condition":check_box_condition}
+            # if there is no associated checkbox in the document
+            else:
+                state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name}
+
 
         # TEXT slot handling
         elif slot_type== "text":
@@ -264,7 +269,7 @@ def chatbot_fn(
     if next_idx is not None:
         next_slot_def   = slots_def[next_idx]
         next_slot_name = next_slot_def["slot_name"]
-        prompt    = prompts[next_slot_name]
+        prompt = next_slot_def.get('prompt', next_slot_def.get('description', ''))
         if next_slot_def["slot_type"] == "choice":
             opts = next_slot_def["choices"]
             opt_lines = "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(opts))
