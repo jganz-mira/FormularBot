@@ -198,6 +198,7 @@ def chatbot_fn(
         slot_type  = slot_def["slot_type"]
         target_filed_name = slot_def.get("filed_name",None)
         check_box_condition = slot_def.get("check_box_condition",None)
+        hints = slot_def.get("hints",None)
         # CHOICE slot handling
         if slot_type== "choice":
             if not valid_choice_slot(message, slot_def):
@@ -240,6 +241,13 @@ def chatbot_fn(
             else:
                 state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name}
 
+            # show hints if there are any
+            if hints:
+                # are there hints for the current input
+                if value in hints:
+                    history.append(ChatMessage(role='assistant',content=hints[value]))
+
+
 
         # TEXT slot handling
         elif slot_type== "text":
@@ -249,6 +257,12 @@ def chatbot_fn(
                 history.append(ChatMessage(role='assistant',content=f"Ungültige Eingabe. Bitte erneut:"))
                 return history, state, ""
             state["responses"][slot_name] = {"value" : message, "target_filed_name": target_filed_name}
+
+            # show hints if there are any
+            if hints:
+                # are there hints for the current input
+                if message in hints:
+                    history.append(ChatMessage(role='assistant',content=hints[message]))
 
         # advance to next
         state["idx"] = cur_idx + 1
