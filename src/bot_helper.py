@@ -1,7 +1,8 @@
 from typing import Optional, Tuple, List, Dict, Any
 import os
 import json
-
+from .translator import translate_from_de
+from gradio import ChatMessage
 
 def load_forms(form_path:str, validator_map:Dict[str,callable]):
     forms = {}
@@ -168,3 +169,10 @@ def save_responses_to_json(state: dict, output_path: str):
         json.dump(result, f, ensure_ascii=False, indent=2)
 
     print(f"Antworten gespeichert in {output_path}")
+
+def utter_message_with_translation(history,prompt:str,lang:str):
+    if lang != 'de':
+        history.append(ChatMessage(role='assistant', content = translate_from_de(prompt,lang)))
+    else:
+        history.append(ChatMessage(role="assistant", content = prompt))
+    return history

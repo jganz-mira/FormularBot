@@ -2,11 +2,13 @@
 from typing import Optional, Tuple, List, Dict, Any
 import os
 from .validators import BaseValidators, GewerbeanmeldungValidators
-from .bot_helper import load_forms, next_slot_index, print_summary, map_yes_no_to_bool, save_responses_to_json
+from .bot_helper import load_forms, next_slot_index, print_summary, map_yes_no_to_bool, save_responses_to_json, utter_message_with_translation
 from .llm_validator_service import LLMValidatorService
 from openai import OpenAI
 from gradio import ChatMessage
 from .pdf_backend import GenericPdfFiller
+from .wizards import LanguageWizard, LanguageWizardState, FormSelectionWizard, FormSelectionWizardState
+from .translator import translate_from_de
 
 # form_path = "../forms/ge"   # Passe ggf. den Pfad an
 # Basisverzeichnis bestimmen
@@ -33,6 +35,14 @@ FORMS = load_forms(
 )
 
 EDIT_CMDS = {"ändern", "korrigieren", "korrektur", "update"} # diese kommen später an einen anderen Ort
+
+
+def build_wizard_from_state(name: str, data: dict):
+    if name == "language_wizard":
+        return LanguageWizard(LanguageWizardState(**(data or {})))
+    if name == "form_selection_wizard":
+        return FormSelectionWizard(FormSelectionWizardState(**(data or {})))
+    return None
 
 # Assume FORMS is a dict loaded at startup mapping form keys to their JSON configs,
 # e.g.:
@@ -89,13 +99,93 @@ def chatbot_fn(
     if state is None:
         state = {
             "form_type": None,   # which form the user has chosen
-            "lang": "de",        # language code for future multi-language support
+            "lang": None,        # language code for future multi-language support
             "responses": {},     # stores slot_name -> user_response
             "idx": 0,            # pointer into the slots list
-            "pdf_file": None     # path to the pdf file for later overwrite
+            "pdf_file": None,     # path to the pdf file for later overwrite
+            "active_wizzard":None, # whether there is currently a wizzard active 
+            "wizzard_handles":None # handles object of the current wizzard
         }
-    msg_low = (message or "").lower()
+
+
+    # -------------------------
+    # Wizard-Router (immer VOR dem restlichen Flow)
+    # -------------------------
+    while True:
+        active_name = state.get("active_wizard")
+        wizard_state_data = state.get("wizard_state")
+        wizard = build_wizard_from_state(active_name, wizard_state_data) if active_name else None
+
+        # Falls kein aktiver Wizard, prüfen ob einer gestartet werden muss
+        if not wizard:
+            if state.get("lang") is None:
+                wizard = LanguageWizard()
+                state["active_wizard"] = "language_wizard"
+            elif state.get("form_type") is None:
+                wizard = FormSelectionWizard(
+                    FormSelectionWizardState(
+                        lang_code=state.get("lang"),
+                        available_form_keys=sorted(list(FORMS.keys()))
+                    )
+                )
+                state["active_wizard"] = "form_selection_wizard"
+            else:
+                # Kein Wizard nötig → AUS DER SCHLEIFE RAUS
+                break
+
+        # Wenn Wizard frisch gestartet wurde (turns == 0): step(None) → Initialprompt
+        # Wenn Wizard schon läuft: step(message) → verarbeitet Nutzereingabe
+        user_text = message if getattr(wizard.state, "turns", 0) > 0 else None
+        reply, done = wizard.step(user_text)
+        # history.append(ChatMessage(role="assistant", content=reply))
+        history = utter_message_with_translation(history=history, prompt=reply, lang = state.get('lang'))
+        state["wizard_state"] = wizard.export_state()
+
+        if done:
+            # Nebenwirkungen übertragen
+            if state["active_wizard"] == "language_wizard":
+                state["lang"] = state["wizard_state"].get("lang_code")
+            elif state["active_wizard"] == "form_selection_wizard":
+                selected = state["wizard_state"].get("selected_form_key")
+                if selected:
+                    state["form_type"] = selected
+                    state["idx"] = 0
+                    state["pdf_file"] = FORMS[selected]["pdf_file"]
+                    state["awaiting_first_slot_prompt"] = True
+            # Wizard schließen und ggf. direkt den nächsten Wizard im selben Turn starten
+            state["active_wizard"] = None
+            state["wizard_state"] = None
+
+            # continue → springt an den Schleifenanfang (Language → Form) ODER
+            # wenn nichts mehr zu tun ist, trifft das nächste if auf break.
+            continue
+        else:
+            # Wizard wartet auf Nutzerantwort → Turn HIER beenden, restlicher Bot-Flow pausiert
+            return history, state, ""
+        
+    # --- Gate: erste Slot-Frage nach Formularwahl ---
+    if state.get("awaiting_first_slot_prompt"):
+        state["awaiting_first_slot_prompt"] = False
+
+        # Slot 0 ermitteln
+        slots = FORMS[state["form_type"]]["slots"]
+        first_slot = slots[0]
+
+        # Prompt bauen (ggf. später lokalisieren)
+        prompt = first_slot.get("prompt", first_slot.get("description", ""))
+
+        # Choice-Optionen anfügen (nummeriert)
+        if first_slot.get("slot_type") == "choice":
+            options = first_slot["choices"]
+            prompt += "\n" + "\n".join(f"{i+1}. {o}" for i, o in enumerate(options))
+
+        # Bot-Ausgabe + Turn hier beenden, damit 'message' nicht als Slot-Antwort verarbeitet wird
+        # history.append(ChatMessage(role="assistant", content=prompt))
+        history = utter_message_with_translation(history, prompt, state.get('lang'))
+        return history, state, ""
+
     # --- Classify Edit intent via LLM classification ---
+    msg_low = (message or "").lower()
     if state.get("form_type") and message and any(cmd in msg_low for cmd in EDIT_CMDS):
         history.append(ChatMessage(role='user',content=message))
         # Slot-Beschreibungen sammeln
@@ -131,56 +221,57 @@ def chatbot_fn(
                 if slot_def['slot_type'] == 'choice':
                     opts = slot_def['choices']
                     prompt += "\n" + "\n".join(f"{i+1}. {o}" for i, o in enumerate(opts))
-                history.append(ChatMessage(role='assistant',content=prompt))
+                # history.append(ChatMessage(role='assistant',content=prompt))
+                history = utter_message_with_translation(history = history, prompt=prompt, lang=state.get('lang'))
                 return history, state, ""
         # Wenn Klassifikation fehlschlägt, weiter normal
 
 
-    # --- Step 1: Form selection ---
-    if state["form_type"] is None: # if no form has been selected yet
-        available = sorted(list(FORMS.keys()))
-        # setup dict with available forms to handle selection by number
-        form_map = {idx+1:key for idx,key in enumerate(available)}
-        # utter available forms to user
-        if message in available or message.strip().rstrip(".").isdigit(): 
-            # Is the user input a number?
-            if message.strip().rstrip(".").isdigit():
-                form_number = int(message.strip().rstrip("."))
-                selected_form = form_map.get(form_number, False)
-                # if given number is invalid
-                if not selected_form:
-                    history.append(ChatMessage(role='assistant', content = f"Ungültige auswahl {selected_form}.\nWählen Sie ein Formular aus den folgenden aus:\n{prompt}"))
-                    return history, state, ""
-            # Does the user input exactly match the form name?
-            elif message in available:
-                selected_form = message
-            # user selected a form
-            state["form_type"] = selected_form
-            state["idx"] = 0
-            history.append(ChatMessage(role="user", content=selected_form)) # store user input in history
-            history.append(ChatMessage(role="assistant", content=f"Sie haben das Formular **{selected_form}** gewählt.")) # store bot output in history
-            # immediately ask first slot
-            first_idx, state = next_slot_index(FORMS[selected_form]["slots"], state)
-            # slect the slots based on the chosen form, slot0_def contains the complete definition of the first slot
-            slot0_def = FORMS[selected_form]["slots"][first_idx]
-            # get the prompt for the respective slot
-            prompt0 = slot0_def.get('prompt', slot0_def.get('description', ''))
-            # if slot is of type choice, load available choices and list them
-            if slot0_def["slot_type"] == "choice":
-                # append enumerated options
-                opts = slot0_def["choices"]
-                opt_lines = "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(opts))
-                prompt0 += "\n" + opt_lines
-            # save the path to the template pdf file to the state
-            state["pdf_file"] = FORMS[selected_form]["pdf_file"]
-            # add the fully formatted promt to history
-            history.append(ChatMessage(role='assistant',content=prompt0))
-            return history, state, ""
-        else:
-            # ask which form to fill out, if non is chosen already
-            form_list = "\n".join(f"- {f}" for f in available)
-            history.append(ChatMessage(role='assistant',content=f"Welches Formular möchten Sie ausfüllen?\n{form_list}"))
-            return history, state, ""
+    # # --- Step 1: Form selection ---
+    # if state["form_type"] is None: # if no form has been selected yet
+    #     available = sorted(list(FORMS.keys()))
+    #     # setup dict with available forms to handle selection by number
+    #     form_map = {idx+1:key for idx,key in enumerate(available)}
+    #     # utter available forms to user
+    #     if message in available or message.strip().rstrip(".").isdigit(): 
+    #         # Is the user input a number?
+    #         if message.strip().rstrip(".").isdigit():
+    #             form_number = int(message.strip().rstrip("."))
+    #             selected_form = form_map.get(form_number, False)
+    #             # if given number is invalid
+    #             if not selected_form:
+    #                 history.append(ChatMessage(role='assistant', content = f"Ungültige auswahl {selected_form}.\nWählen Sie ein Formular aus den folgenden aus:\n{prompt}"))
+    #                 return history, state, ""
+    #         # Does the user input exactly match the form name?
+    #         elif message in available:
+    #             selected_form = message
+    #         # user selected a form
+    #         state["form_type"] = selected_form
+    #         state["idx"] = 0
+    #         history.append(ChatMessage(role="user", content=selected_form)) # store user input in history
+    #         history.append(ChatMessage(role="assistant", content=f"Sie haben das Formular **{selected_form}** gewählt.")) # store bot output in history
+    #         # immediately ask first slot
+    #         first_idx, state = next_slot_index(FORMS[selected_form]["slots"], state)
+    #         # slect the slots based on the chosen form, slot0_def contains the complete definition of the first slot
+    #         slot0_def = FORMS[selected_form]["slots"][first_idx]
+    #         # get the prompt for the respective slot
+    #         prompt0 = slot0_def.get('prompt', slot0_def.get('description', ''))
+    #         # if slot is of type choice, load available choices and list them
+    #         if slot0_def["slot_type"] == "choice":
+    #             # append enumerated options
+    #             opts = slot0_def["choices"]
+    #             opt_lines = "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(opts))
+    #             prompt0 += "\n" + opt_lines
+    #         # save the path to the template pdf file to the state
+    #         state["pdf_file"] = FORMS[selected_form]["pdf_file"]
+    #         # add the fully formatted promt to history
+    #         history.append(ChatMessage(role='assistant',content=prompt0))
+    #         return history, state, ""
+    #     else:
+    #         # ask which form to fill out, if non is chosen already
+    #         form_list = "\n".join(f"- {f}" for f in available)
+    #         history.append(ChatMessage(role='assistant',content=f"Welches Formular möchten Sie ausfüllen?\n{form_list}"))
+    #         return history, state, ""
 
     # --- Step 2: Handle input for current slot ---
     # here we already have a from selected
@@ -206,7 +297,8 @@ def chatbot_fn(
                 opts = slot_def["choices"]
                 opt_text = "\n".join(f"{i+1}. {o}" for i, o in enumerate(opts))
                 # history.append(ChatMessage(role='user',content=message)) # show waht user typed
-                history.append(ChatMessage(role='assistant',content=f"Ungültige Auswahl. Bitte wählen:\n{opt_text}"))
+                # history.append(ChatMessage(role='assistant',content=f"Ungültige Auswahl. Bitte wählen:\n{opt_text}"))
+                history = utter_message_with_translation(history, f"Ungültige Auswahl. Bitte wählen:\n{opt_text}", state.get('lang'))
                 return history, state, ""
             # map to canonical choice
             selection = None
@@ -245,24 +337,30 @@ def chatbot_fn(
             if hints:
                 # are there hints for the current input
                 if value in hints:
-                    history.append(ChatMessage(role='assistant',content=hints[value]))
+                    # history.append(ChatMessage(role='assistant',content=hints[value]))
+                    history = utter_message_with_translation(history, hints[value], state.get('lang'))
 
 
 
         # TEXT slot handling
         elif slot_type== "text":
-            fn = getattr(validators, f"valid_{slot_name}", None) # dynamically get a validator for the current filed if there is one
-            if fn and not fn(message): # if there is a function and the function returned false
+            fn = getattr(validators, f"valid_{slot_name}", BaseValidators.valid_basic) # dynamically get a validator for the current filed if there is one
+
+            valid, reason, payload = fn(message)
+            if not valid: # if input is not valid
                 history.append(ChatMessage(role='user',content=message))
-                history.append(ChatMessage(role='assistant',content=f"Ungültige Eingabe. Bitte erneut:"))
+                # history.append(ChatMessage(role='assistant',content=f"Ungültige Eingabe.\n{reason}\nBitte versuche es nocheinmal."))
+                history = utter_message_with_translation(history, f"Ungültige Eingabe.\n{reason}\nBitte versuche es nocheinmal.", state.get('lang'))
                 return history, state, ""
-            state["responses"][slot_name] = {"value" : message, "target_filed_name": target_filed_name}
+            # if input is valid
+            state["responses"][slot_name] = {"value" : payload, "target_filed_name": target_filed_name}
 
             # show hints if there are any
             if hints:
                 # are there hints for the current input
                 if message in hints:
-                    history.append(ChatMessage(role='assistant',content=hints[message]))
+                    # history.append(ChatMessage(role='assistant',content=hints[message]))
+                    history = utter_message_with_translation(history, hints[message], state.get('lang'))
 
         # advance to next
         state["idx"] = cur_idx + 1
@@ -288,9 +386,18 @@ def chatbot_fn(
             opts = next_slot_def["choices"]
             opt_lines = "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(opts))
             prompt += "\n" + opt_lines
-        history.append(ChatMessage(role='assistant',content=prompt))
+        # if state.get('lang') != 'de':
+        #     history.append(ChatMessage(role='assistant',content=translate_from_de(prompt, state.get('lang'))))
+        # else:
+        #     history.append(ChatMessage(role='assistant',content=prompt))
+
+        history = utter_message_with_translation(history,prompt,state.get('lang'))
     else:
-        history.append(ChatMessage(role='assistant',content="Vielen Dank! Das Formular ist abgeschlossen."))
+        # if state.get('lang') != 'de':
+        #     history.append(ChatMessage(role='assistant',content=translate_from_de("Vielen Dank! Das Formular ist abgeschlossen.", state.get('lang'))))
+        # else:
+        #     history.append(ChatMessage(role='assistant',content="Vielen Dank! Das Formular ist abgeschlossen."))
+        history = utter_message_with_translation(history, "Vielen Dank! Das Formular ist abgeschlossen.", state.get('lang'))
         print_summary(state = state, forms = FORMS)
         state['completed'] = True
     return history, state, ""

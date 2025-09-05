@@ -5,74 +5,91 @@ import os
 from typing import List, Dict, Any, Union
 
 from .llm_validator_service import LLMValidatorService
+from .validator_helper import response_to_dict, convert_to_bool
 from openai import OpenAI
+
 
 LLM_ENDPOINT = os.getenv("LLM_ENDPOINT", "http://localhost:8080/completion")
 
 class BaseValidators:
     '''This class holds the most basic validation functions, each more specific 
     validators class can inherit from this class'''
+
+    @staticmethod
+    def valid_basic(x:str) -> tuple:
+        """
+        does not check anything, only here for convinience. Is used if not validation is available
+        """
+        return True, "", x
+
     @staticmethod
     def valid_name(x:str) -> bool:
         '''
         Checks whether name has at least three characters.
         '''
-        return isinstance(x, str) and len(x.strip()) > 2
-    
-    @staticmethod 
-    def valid_not_empty(x:Union[str,int]) -> bool:
-        '''
-        Checks whether a filed is not empty
-        '''
-        return len(x.strip()) > 2
 
-    @staticmethod
-    def valid_date(x:str) -> bool:
-        """
-        Dates have to be in the format TT.MM.JJJJ.
-        """
-        try:
-            datetime.datetime.strptime(x, "%d.%m.%Y")
-            return True
-        except Exception:
-            return False
+        validity = isinstance(x, str) and len(x.strip()) > 2
+
+        reason = '' if validity else "Name must at least have three characters"
+
+        payload = x if validity else ''
+
+        return validity, reason, payload
+    
+    # @staticmethod 
+    # def valid_not_empty(x:Union[str,int]) -> bool:
+    #     '''
+    #     Checks whether a filed is not empty
+    #     '''
+    #     return len(x.strip()) > 2
+
+    # @staticmethod
+    # def valid_date(x:str) -> bool:
+    #     """
+    #     Dates have to be in the format TT.MM.JJJJ.
+    #     """
+    #     try:
+    #         datetime.datetime.strptime(x, "%d.%m.%Y")
+    #         return True
+    #     except Exception:
+    #         return False
         
-    @staticmethod
-    def valid_phone(x:str) -> bool:
-        """
-        Basic check, overwrite for more sophisticated check.
-        """
-        return bool(re.fullmatch(r"[+\d][\d\s\-/]{4,}", x))
+    # @staticmethod
+    # def valid_phone(x:str) -> bool:
+    #     """
+    #     Basic check, overwrite for more sophisticated check.
+    #     """
+    #     return bool(re.fullmatch(r"[+\d][\d\s\-/]{4,}", x))
     
-    @staticmethod
-    def valid_adresse(x:str)-> bool:
-        """
-        Basic check, overwrite for more sophisticated check.
-        """
-        return isinstance(x, str) and len(x.strip()) > 7
+    # @staticmethod
+    # def valid_adresse(x:str)-> bool:
+    #     """
+    #     Basic check, overwrite for more sophisticated check.
+    #     """
+    #     return isinstance(x, str) and len(x.strip()) > 7
     
-    @staticmethod
-    def valid_full_adress(x:str) -> bool:
-        """
-        Validates German addresses in the format:
-        Straße, Hausnummer, Postleitzahl, Ort
-        e.g. "Musterstraße, 12, 12345, Musterstadt"
-        """
-        pattern = re.compile(
-            r'^'                              # start of string
-            r'[A-ZÄÖÜ]'                       # street starts with capital letter
-            r'[A-Za-zäöüÄÖÜß\s\.-]+'          # rest of street (letters, spaces, dot, hyphen)
-            r',\s*'                           # comma + optional whitespace
-            r'\d+'                            # house number (one or more digits)
-            r'[A-Za-z]?'                      # optional single letter
-            r',\s*'                           # comma + optional whitespace
-            r'\d{5}'                          # five-digit postal code
-            r',\s*'                           # comma + optional whitespace
-            r'[A-ZÄÖÜ]'                       # city starts with capital letter
-            r'[A-Za-zäöüÄÖÜß\s\.-]+'          # rest of city (letters, spaces, dot, hyphen)
-            r'$'                              # end of string
-        )
-        return bool(pattern.fullmatch(x))
+    # @staticmethod
+    # def valid_full_adress(x:str) -> bool:
+    #     """
+    #     Validates German addresses in the format:
+    #     Straße, Hausnummer, Postleitzahl, Ort
+    #     e.g. "Musterstraße, 12, 12345, Musterstadt"
+    #     """
+    #     pattern = re.compile(
+    #         r'^'                              # start of string
+    #         r'[A-ZÄÖÜ]'                       # street starts with capital letter
+    #         r'[A-Za-zäöüÄÖÜß\s\.-]+'          # rest of street (letters, spaces, dot, hyphen)
+    #         r',\s*'                           # comma + optional whitespace
+    #         r'\d+'                            # house number (one or more digits)
+    #         r'[A-Za-z]?'                      # optional single letter
+    #         r',\s*'                           # comma + optional whitespace
+    #         r'\d{5}'                          # five-digit postal code
+    #         r',\s*'                           # comma + optional whitespace
+    #         r'[A-ZÄÖÜ]'                       # city starts with capital letter
+    #         r'[A-Za-zäöüÄÖÜß\s\.-]+'          # rest of city (letters, spaces, dot, hyphen)
+    #         r'$'                              # end of string
+    #     )
+    #     return bool(pattern.fullmatch(x))
     
     @staticmethod
     def valid_choice_slot(message: str, slot_def: Dict[str, Any]) -> bool:
@@ -195,3 +212,76 @@ class GewerbeanmeldungValidators(BaseValidators):
     def valid_address(self,x):
         return self.valid_full_adress(x)
 
+    def valid_representative_address(self, x, llm_service = None) -> bool:
+        system_prompt = (
+            "Task: Extract from the user input the street name, house number, postal code, and city name. "
+            "If all details are present, return 'VALID';  If even one piece of information is missing (e.g no postal code, no street number, no city name, no street name), return 'INVALID' (validity).\n"
+            "If you encounter minor typos in the city name, return the corrected name to city_name \n"
+            "If 'INVALID', briefly provide in the field invalid_reason a concise description of why the input is 'INVALID' "
+            "(e.g., missing house number, missing postal code, incorrect postal code ...)\n"
+            "IMPORTANT: Strictly adhere to the JSON format specified. **Under no circumstances invent missing information**. No free text, no explanations"
+            "**this is of the utmost importance.** "
+            "A valid postal code must be a German postal code consisting of exactly 5 digits between 01000 and 99999."
+        )
+
+        address_schema = {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "validity": {
+                    "type": "string",
+                    "enum": ["VALID", "INVALID"],
+                    "description": "VALID if input is valid, false INVALID"
+                },
+                "invalid_reason": {
+                    "type": "string",
+                    "description": "Reason for invalidity; empty if valid"
+                },
+                "street_name": {
+                    "type": "string",
+                    "description": "Name of the street given in user input; empty if missing"
+                },
+                "street_number": {
+                    "type": "string",
+                    "description": "Street number given in user input; empty if missing"
+                },
+                "postal_code": {
+                    "type": "string",
+                    "description": "Postal code given in user input; empty if missing"
+                },
+                "city_name": {
+                    "type": "string",
+                    "description": "Name of the city given in user input; empty if missing"
+                }
+            },
+            "required": [
+                "validity",
+                "invalid_reason",
+                "street_name",
+                "street_number",
+                "postal_code",
+                "city_name"
+            ]
+        }
+        if llm_service is None:
+            llm_service = LLMValidatorService()
+
+        response = self.llm_service.validate_openai_json_mode(
+            system_prompt=system_prompt,
+            user_input=x,
+            json_schema = address_schema,
+            model="gpt-4.1-mini",
+            client = self.client
+        )
+
+        response = response_to_dict(response)
+        
+        validity = convert_to_bool(response['validity'])
+        reason = response['invalid_reason']
+
+        if validity == 'VALID':
+            adress = f"{response['street_name']}, {response['street_number']}, {response['postal_code']}, {response['city_name']}"
+        else:
+            adress = None
+
+        return validity, reason, adress
