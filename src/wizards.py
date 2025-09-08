@@ -107,61 +107,154 @@ class LanguageWizard:
         )
         out = json.loads(resp.output_text)
         return bool(out.get("approved")), out.get("confirmation_prompt")
+    
+    def _normalize(self, text: str) -> str:
+        return (text or "").strip().lower()
+
+    def _fast_language_from_text(self, user_text: str) -> Optional[str]:
+        t = self._normalize(user_text)
+
+        # reichlich Varianten / Sprachen
+        de_keys = {
+            "de", "deutsch", "auf deutsch", "sprich deutsch", "german", "in german",
+            "bitte deutsch", "deutsche sprache"
+        }
+        en_keys = {
+            "en", "englisch", "english", "speak english", "in english",
+            "please english", "anglo", "eng", "eng language"
+        }
+        fr_keys = {
+            "fr", "französisch", "franzoesisch", "français", "francais",
+            "en français", "in french", "french", "parlons français"
+        }
+        tr_keys = {
+            "tr", "türkçe", "turkce", "turkish", "ingilizce degil türkçe", "türk dili",
+            "türkisch", "auf türkisch", "in turkish"
+        }
+
+        # substring-checks (robust gegen Satzformen)
+        def has_any(keys): return any(k in t for k in keys)
+
+        if has_any(de_keys): return "de"
+        if has_any(en_keys): return "en"
+        if has_any(fr_keys): return "fr"
+        if has_any(tr_keys): return "tr"
+        return None
+
+    def _build_confirm_prompt(self, code: str) -> str:
+        return {
+            "de": "Ich habe **Deutsch** erkannt. Sollen wir auf Deutsch weitermachen? (Ja/Nein)",
+            "en": "I detected **English**. Shall we continue in English? (Yes/No)",
+            "fr": "J’ai détecté le **français**. Souhaitez-vous continuer en français ? (Oui/Non)",
+            "tr": "**Türkçe** algıladım. Türkçe devam edelim mi? (Evet/Hayır)",
+        }.get(code, "Language detected. Continue? (Yes/No)")
+
+    def _fast_approval(self, user_text: str) -> Optional[bool]:
+        t = self._normalize(user_text)
+
+        # breite Ja-/Nein-Mengen (mehrsprachig, inkl. Umgangssprache)
+        YES = {
+            "ja","j","jawohl","jo","jup","jep","klar","korrekt","richtig","okay","ok","okey",
+            "yes","y","yeah","yep","sure","correct","right","affirmative",
+            "oui","ouais","d'accord","dac","bien sûr",
+            "evet","tamam","olur","aynen"
+        }
+        NO = {
+            "nein","n","nee","nö","nicht","falsch","auf keinen fall",
+            "no","nope","nah","never",
+            "non","pas","pas du tout",
+            "hayır","hayir","yok","olmaz","asla"
+        }
+
+        # exakte matches
+        if t in YES: return True
+        if t in NO:  return False
+
+        # häufige Satzanfänge
+        yes_sub = ["ja,", "ja.", "ja!", "yes,", "yes.", "oui,", "evet,", "ok,", "okay,"]
+        no_sub  = ["nein,", "nein.", "no,", "no.", "non,", "hayır,", "hayir,", "yok,", "olmaz,"]
+
+        if any(t.startswith(s) for s in yes_sub): return True
+        if any(t.startswith(s) for s in no_sub):  return False
+
+        return None
 
     # --- Wizard-Schritte -----------------------------------------------------
     def step(self, user_text: Optional[str]) -> Tuple[str, bool]:
         s = self.state
 
-        # 1) Einstieg: erste Bot-Nachricht
-        if s.turns == 0:
-            s.turns += 1
-            s.history.append(("assistant","In welcher Sprache sollen wir sprechen? Du kannst einfach in deiner Sprache antworten."))
-            return s.history[-1][1], False
-
-        # 2) Sprache per LLM erkennen + in der Sprache um Bestätigung bitten
+        # 2) Sprache erkennen (Fast-Path -> LLM-Fallback)
         if not s.lang_code and user_text:
             s.history.append(("user", user_text))
+
+            # 🔹 FAST: heuristische Spracherkennung
+            fast_code = self._fast_language_from_text(user_text)
+            if fast_code:
+                s.lang_code = fast_code
+                s.awaiting_confirmation = True
+                confirm = self._build_confirm_prompt(fast_code)
+                s.history.append(("assistant", confirm))
+                return confirm, False, s.lang_code
+
+            # 🔹 FALLBACK: LLM
             code, label, confirm, rid = self._llm_detect_language(user_text)
             s.previous_response_id = rid or s.previous_response_id
 
             if code and confirm:
                 s.lang_code = code
                 s.awaiting_confirmation = True
-                s.history.append(("assistant", confirm))  # z.B. "Sollen wir auf Deutsch weitermachen?"
-                return confirm, False
+                s.history.append(("assistant", confirm))
+                return confirm, False, s.lang_code
             else:
                 msg = "Ich bin mir unsicher. Bitte nenne die gewünschte Sprache (z. B. Deutsch, English, Français, Türkçe)."
                 s.history.append(("assistant", msg))
-                return msg, False
+                return msg, False, s.lang_code
 
-        # 3) Bestätigung sprachunabhängig prüfen
+        # 3) Approval prüfen (Fast-Path -> LLM-Fallback)
         if s.awaiting_confirmation and user_text:
-            t = (user_text or "").strip().lower()
-            approved: Optional[bool] = None
-            approved, done_msg = self._llm_check_approval(user_text)
-
-            if approved is True:
+            # 🔹 FAST: Ja/Nein-Heuristik
+            fast_yn = self._fast_approval(user_text)
+            if fast_yn is True:
                 s.awaiting_confirmation = False
+                done_msg = {
+                    "de":"Alles klar – wir sprechen Deutsch. ✅",
+                    "en":"Great — we'll continue in English. ✅",
+                    "fr":"Parfait — nous continuons en français. ✅",
+                    "tr":"Harika — Türkçe devam edelim. ✅"
+                }.get(s.lang_code, "Okay — language set. ✅")
                 s.history.append(("assistant", done_msg))
-                return done_msg, True
+                return done_msg, True, s.lang_code
 
-            if approved is False:
-                # Reset + neue Abfrage
+            if fast_yn is False:
                 s.lang_code = None
                 s.awaiting_confirmation = False
                 msg = "Kein Problem. Welche Sprache hättest du gern?"
                 s.history.append(("assistant", msg))
-                return msg, False
+                return msg, False, s.lang_code
+
+            # 🔹 FALLBACK: LLM
+            approved, done_msg = self._llm_check_approval(user_text)
+            if approved is True:
+                s.awaiting_confirmation = False
+                s.history.append(("assistant", done_msg))
+                return done_msg, True, s.lang_code
+
+            if approved is False:
+                s.lang_code = None
+                s.awaiting_confirmation = False
+                msg = "Kein Problem. Welche Sprache hättest du gern?"
+                s.history.append(("assistant", msg))
+                return msg, False, s.lang_code
 
             # Unklar
             msg = "Bitte antworte mit Ja/Nein."
             s.history.append(("assistant", msg))
-            return msg, False
+            return msg, False, s.lang_code
 
         # Fallback
         msg = "Wie sollen wir sprechen?"
         s.history.append(("assistant", msg))
-        return msg, False
+        return msg, False, s.lang_code
 
     def export_state(self) -> Dict[str, Any]:
         return {
@@ -265,7 +358,7 @@ class FormSelectionWizard:
                 "fr": "Vous pouvez saisir le numéro ou le nom.",
                 "tr": "Numarayı veya adı girebilirsiniz."
             }.get(s.lang_code, "You can enter the number or the name.")
-            return f"{prompt}\n{numbered}\n\n{hint}", False
+            return f"{prompt}\n{numbered}\n\n{hint}", False, s.lang_code
 
         # 2) Auswahl verarbeiten
         if s.awaiting_selection and user_text:
@@ -283,7 +376,7 @@ class FormSelectionWizard:
                         "fr":"Compris. Nous commençons avec le formulaire :",
                         "tr":"Anlaşıldı. Şu form ile başlıyoruz:"
                     }.get(s.lang_code, "OK. We'll start with the form:")
-                    return f"{confirm} **{s.translated_labels[idx]}**", True
+                    return f"{confirm} **{s.translated_labels[idx]}**", True, s.lang_code
 
             # b) Exakter Text-Match (übersetzte Labels)
             lowered = text.lower()
@@ -297,7 +390,7 @@ class FormSelectionWizard:
                         "fr":"Compris. Nous commençons avec le formulaire :",
                         "tr":"Anlaşıldı. Şu form ile başlıyoruz:"
                     }.get(s.lang_code, "OK. We'll start with the form:")
-                    return f"{confirm} **{lab}**", True
+                    return f"{confirm} **{lab}**", True, s.lang_code
 
             # c) Ungültig -> erneut anzeigen
             retry = {
@@ -307,10 +400,10 @@ class FormSelectionWizard:
                 "tr":"Geçersiz seçim. Lütfen tekrar seçin."
             }.get(s.lang_code, "Invalid choice. Please choose again.")
             numbered = self._format_numbered_list(s.translated_labels)
-            return f"{retry}\n{numbered}", False
+            return f"{retry}\n{numbered}", False, s.lang_code
 
         # Fallback
-        return "…", False
+        return "…", False, s.lang_code
 
     def export_state(self) -> Dict[str, Any]:
         return {

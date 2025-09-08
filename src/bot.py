@@ -106,7 +106,9 @@ def chatbot_fn(
             "active_wizzard":None, # whether there is currently a wizzard active 
             "wizzard_handles":None # handles object of the current wizzard
         }
-
+    # safe user message
+    if message is not None:
+        history.append(ChatMessage(role="user", content=message))
 
     # -------------------------
     # Wizard-Router (immer VOR dem restlichen Flow)
@@ -134,11 +136,10 @@ def chatbot_fn(
                 break
 
         # Wenn Wizard frisch gestartet wurde (turns == 0): step(None) → Initialprompt
-        # Wenn Wizard schon läuft: step(message) → verarbeitet Nutzereingabe
-        user_text = message if getattr(wizard.state, "turns", 0) > 0 else None
-        reply, done = wizard.step(user_text)
-        # history.append(ChatMessage(role="assistant", content=reply))
-        history = utter_message_with_translation(history=history, prompt=reply, lang = state.get('lang'))
+        # Wenn Wizard schon läuft: step(message) → verarbeitet Nutzereingab
+        user_text = message
+        reply, done, lang_code = wizard.step(user_text)
+        history = utter_message_with_translation(history=history, prompt=reply, target_lang = state.get('lang'), source_lang = lang_code)
         state["wizard_state"] = wizard.export_state()
 
         if done:
@@ -180,14 +181,12 @@ def chatbot_fn(
             prompt += "\n" + "\n".join(f"{i+1}. {o}" for i, o in enumerate(options))
 
         # Bot-Ausgabe + Turn hier beenden, damit 'message' nicht als Slot-Antwort verarbeitet wird
-        # history.append(ChatMessage(role="assistant", content=prompt))
         history = utter_message_with_translation(history, prompt, state.get('lang'))
         return history, state, ""
 
     # --- Classify Edit intent via LLM classification ---
     msg_low = (message or "").lower()
     if state.get("form_type") and message and any(cmd in msg_low for cmd in EDIT_CMDS):
-        history.append(ChatMessage(role='user',content=message))
         # Slot-Beschreibungen sammeln
         slots_def = FORMS[state["form_type"]]["slots"]
         descriptions = "\n".join(
@@ -221,57 +220,9 @@ def chatbot_fn(
                 if slot_def['slot_type'] == 'choice':
                     opts = slot_def['choices']
                     prompt += "\n" + "\n".join(f"{i+1}. {o}" for i, o in enumerate(opts))
-                # history.append(ChatMessage(role='assistant',content=prompt))
-                history = utter_message_with_translation(history = history, prompt=prompt, lang=state.get('lang'))
+                history = utter_message_with_translation(history = history, prompt=prompt, target_lang = state.get('lang'))
                 return history, state, ""
         # Wenn Klassifikation fehlschlägt, weiter normal
-
-
-    # # --- Step 1: Form selection ---
-    # if state["form_type"] is None: # if no form has been selected yet
-    #     available = sorted(list(FORMS.keys()))
-    #     # setup dict with available forms to handle selection by number
-    #     form_map = {idx+1:key for idx,key in enumerate(available)}
-    #     # utter available forms to user
-    #     if message in available or message.strip().rstrip(".").isdigit(): 
-    #         # Is the user input a number?
-    #         if message.strip().rstrip(".").isdigit():
-    #             form_number = int(message.strip().rstrip("."))
-    #             selected_form = form_map.get(form_number, False)
-    #             # if given number is invalid
-    #             if not selected_form:
-    #                 history.append(ChatMessage(role='assistant', content = f"Ungültige auswahl {selected_form}.\nWählen Sie ein Formular aus den folgenden aus:\n{prompt}"))
-    #                 return history, state, ""
-    #         # Does the user input exactly match the form name?
-    #         elif message in available:
-    #             selected_form = message
-    #         # user selected a form
-    #         state["form_type"] = selected_form
-    #         state["idx"] = 0
-    #         history.append(ChatMessage(role="user", content=selected_form)) # store user input in history
-    #         history.append(ChatMessage(role="assistant", content=f"Sie haben das Formular **{selected_form}** gewählt.")) # store bot output in history
-    #         # immediately ask first slot
-    #         first_idx, state = next_slot_index(FORMS[selected_form]["slots"], state)
-    #         # slect the slots based on the chosen form, slot0_def contains the complete definition of the first slot
-    #         slot0_def = FORMS[selected_form]["slots"][first_idx]
-    #         # get the prompt for the respective slot
-    #         prompt0 = slot0_def.get('prompt', slot0_def.get('description', ''))
-    #         # if slot is of type choice, load available choices and list them
-    #         if slot0_def["slot_type"] == "choice":
-    #             # append enumerated options
-    #             opts = slot0_def["choices"]
-    #             opt_lines = "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(opts))
-    #             prompt0 += "\n" + opt_lines
-    #         # save the path to the template pdf file to the state
-    #         state["pdf_file"] = FORMS[selected_form]["pdf_file"]
-    #         # add the fully formatted promt to history
-    #         history.append(ChatMessage(role='assistant',content=prompt0))
-    #         return history, state, ""
-    #     else:
-    #         # ask which form to fill out, if non is chosen already
-    #         form_list = "\n".join(f"- {f}" for f in available)
-    #         history.append(ChatMessage(role='assistant',content=f"Welches Formular möchten Sie ausfüllen?\n{form_list}"))
-    #         return history, state, ""
 
     # --- Step 2: Handle input for current slot ---
     # here we already have a from selected
@@ -282,7 +233,6 @@ def chatbot_fn(
     cur_idx, state = next_slot_index(slots_def, state)
 
     if message is not None and cur_idx is not None:
-        history.append(ChatMessage(role="user", content=message)) # To show user message in chat history
         # get the info of the current slot
         slot_def   = slots_def[cur_idx]
         slot_name = slot_def["slot_name"]
@@ -296,8 +246,6 @@ def chatbot_fn(
                 # re-prompt with options if invalid
                 opts = slot_def["choices"]
                 opt_text = "\n".join(f"{i+1}. {o}" for i, o in enumerate(opts))
-                # history.append(ChatMessage(role='user',content=message)) # show waht user typed
-                # history.append(ChatMessage(role='assistant',content=f"Ungültige Auswahl. Bitte wählen:\n{opt_text}"))
                 history = utter_message_with_translation(history, f"Ungültige Auswahl. Bitte wählen:\n{opt_text}", state.get('lang'))
                 return history, state, ""
             # map to canonical choice
@@ -316,8 +264,6 @@ def chatbot_fn(
 
             # If yes/no filed, map to true/false to make it more independent against language
             choices = slot_def["choices"]
-            # if set(opt.lower() for opt in choices) == {"ja", "nein"}:
-            #     value = map_yes_no_to_bool(selection)
             lower_choices = {opt.lower() for opt in choices}
             selection_lc = selection.lower()
             # ja and nein are mapped to true false regardless of which other choices are present
@@ -325,7 +271,6 @@ def chatbot_fn(
                 value = map_yes_no_to_bool(selection)
             else:
                 value = selection
-            # history.append(ChatMessage(role='user', content = message))
             # for choices regarding boxes
             if check_box_condition:
                 state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name, "choices": slot_def['choices'], "check_box_condition":check_box_condition}
@@ -337,7 +282,6 @@ def chatbot_fn(
             if hints:
                 # are there hints for the current input
                 if value in hints:
-                    # history.append(ChatMessage(role='assistant',content=hints[value]))
                     history = utter_message_with_translation(history, hints[value], state.get('lang'))
 
 
@@ -348,8 +292,6 @@ def chatbot_fn(
 
             valid, reason, payload = fn(message)
             if not valid: # if input is not valid
-                history.append(ChatMessage(role='user',content=message))
-                # history.append(ChatMessage(role='assistant',content=f"Ungültige Eingabe.\n{reason}\nBitte versuche es nocheinmal."))
                 history = utter_message_with_translation(history, f"Ungültige Eingabe.\n{reason}\nBitte versuche es nocheinmal.", state.get('lang'))
                 return history, state, ""
             # if input is valid
@@ -359,7 +301,6 @@ def chatbot_fn(
             if hints:
                 # are there hints for the current input
                 if message in hints:
-                    # history.append(ChatMessage(role='assistant',content=hints[message]))
                     history = utter_message_with_translation(history, hints[message], state.get('lang'))
 
         # advance to next
@@ -386,17 +327,9 @@ def chatbot_fn(
             opts = next_slot_def["choices"]
             opt_lines = "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(opts))
             prompt += "\n" + opt_lines
-        # if state.get('lang') != 'de':
-        #     history.append(ChatMessage(role='assistant',content=translate_from_de(prompt, state.get('lang'))))
-        # else:
-        #     history.append(ChatMessage(role='assistant',content=prompt))
 
         history = utter_message_with_translation(history,prompt,state.get('lang'))
     else:
-        # if state.get('lang') != 'de':
-        #     history.append(ChatMessage(role='assistant',content=translate_from_de("Vielen Dank! Das Formular ist abgeschlossen.", state.get('lang'))))
-        # else:
-        #     history.append(ChatMessage(role='assistant',content="Vielen Dank! Das Formular ist abgeschlossen."))
         history = utter_message_with_translation(history, "Vielen Dank! Das Formular ist abgeschlossen.", state.get('lang'))
         print_summary(state = state, forms = FORMS)
         state['completed'] = True

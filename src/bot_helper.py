@@ -170,9 +170,12 @@ def save_responses_to_json(state: dict, output_path: str):
 
     print(f"Antworten gespeichert in {output_path}")
 
-def utter_message_with_translation(history,prompt:str,lang:str):
-    if lang != 'de':
-        history.append(ChatMessage(role='assistant', content = translate_from_de(prompt,lang)))
-    else:
+def utter_message_with_translation(history, prompt:str, target_lang:str, source_lang:str = None):
+    if target_lang == 'de':
         history.append(ChatMessage(role="assistant", content = prompt))
+    elif source_lang != None and target_lang == source_lang:
+        history.append(ChatMessage(role="assistant", content = prompt))
+    else:
+        history.append(ChatMessage(role='assistant', content = translate_from_de(prompt,target_lang)))
     return history
+

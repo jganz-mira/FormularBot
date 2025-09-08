@@ -213,17 +213,68 @@ class GewerbeanmeldungValidators(BaseValidators):
         return self.valid_full_adress(x)
 
     def valid_representative_address(self, x, llm_service = None) -> bool:
+        # system_prompt = (
+        #     "Task: Extract from the user input the street name, house number, postal code, and city name. "
+        #     "If all details are present, return 'VALID';  If even one piece of information is missing (e.g no postal code, no street number, no city name, no street name), return 'INVALID' (validity).\n"
+        #     "If you encounter minor typos in the city name, return the corrected name to city_name \n"
+        #     "If 'INVALID', briefly provide in the field invalid_reason a concise description of why the input is 'INVALID' "
+        #     "(e.g., missing house number, missing postal code, incorrect postal code ...)\n"
+        #     "IMPORTANT: Strictly adhere to the JSON format specified. **Under no circumstances invent missing information**. No free text, no explanations"
+        #     "**this is of the utmost importance.** "
+        #     "A valid postal code must be a German postal code consisting of exactly 5 digits between 01000 and 99999."
+        # )
         system_prompt = (
-            "Task: Extract from the user input the street name, house number, postal code, and city name. "
-            "If all details are present, return 'VALID';  If even one piece of information is missing (e.g no postal code, no street number, no city name, no street name), return 'INVALID' (validity).\n"
-            "If you encounter minor typos in the city name, return the corrected name to city_name \n"
-            "If 'INVALID', briefly provide in the field invalid_reason a concise description of why the input is 'INVALID' "
-            "(e.g., missing house number, missing postal code, incorrect postal code ...)\n"
-            "IMPORTANT: Strictly adhere to the JSON format specified. **Under no circumstances invent missing information**. No free text, no explanations"
-            "**this is of the utmost importance.** "
-            "A valid postal code must be a German postal code consisting of exactly 5 digits between 01000 and 99999."
+            "Aufgabe: Extrahiere aus der Nutzereingabe den Straßennamen, die Hausnummer, die Postleitzahl und den Stadtnamen. "
+            "Wenn alle Angaben vorhanden sind, gib 'VALID' zurück; wenn auch nur eine Information fehlt "
+            "(z. B. keine Postleitzahl, keine Hausnummer, kein Stadtname, kein Straßenname), gib 'INVALID' zurück.\n"
+            "Wenn du kleine Tippfehler im Stadtnamen findest, gib den korrigierten Namen in 'city_name' zurück.\n"
+            "Falls 'INVALID', gib im Feld 'invalid_reason' eine kurze Begründung an, warum die Eingabe 'INVALID' ist "
+            "(z. B. fehlende Hausnummer, fehlende Postleitzahl, falsche Postleitzahl ...).\n"
+            "WICHTIG: Halte dich strikt an das angegebene JSON-Format. **Unter keinen Umständen fehlende Informationen erfinden.** "
+            "Kein Freitext, keine Erklärungen – **das ist von höchster Wichtigkeit.** "
+            "Eine gültige Postleitzahl muss eine deutsche Postleitzahl mit genau 5 Ziffern zwischen 01000 und 99999 sein."
         )
 
+
+        # address_schema = {
+        #     "type": "object",
+        #     "additionalProperties": False,
+        #     "properties": {
+        #         "validity": {
+        #             "type": "string",
+        #             "enum": ["VALID", "INVALID"],
+        #             "description": "VALID if input is valid, false INVALID"
+        #         },
+        #         "invalid_reason": {
+        #             "type": "string",
+        #             "description": "Reason for invalidity; empty if valid"
+        #         },
+        #         "street_name": {
+        #             "type": "string",
+        #             "description": "Name of the street given in user input; empty if missing"
+        #         },
+        #         "street_number": {
+        #             "type": "string",
+        #             "description": "Street number given in user input; empty if missing"
+        #         },
+        #         "postal_code": {
+        #             "type": "string",
+        #             "description": "Postal code given in user input; empty if missing"
+        #         },
+        #         "city_name": {
+        #             "type": "string",
+        #             "description": "Name of the city given in user input; empty if missing"
+        #         }
+        #     },
+        #     "required": [
+        #         "validity",
+        #         "invalid_reason",
+        #         "street_name",
+        #         "street_number",
+        #         "postal_code",
+        #         "city_name"
+        #     ]
+        # }
         address_schema = {
             "type": "object",
             "additionalProperties": False,
@@ -231,27 +282,27 @@ class GewerbeanmeldungValidators(BaseValidators):
                 "validity": {
                     "type": "string",
                     "enum": ["VALID", "INVALID"],
-                    "description": "VALID if input is valid, false INVALID"
+                    "description": "VALID, wenn Eingabe vollständig und gültig; sonst INVALID"
                 },
                 "invalid_reason": {
                     "type": "string",
-                    "description": "Reason for invalidity; empty if valid"
+                    "description": "Grund für die Ungültigkeit; leer lassen, falls gültig"
                 },
                 "street_name": {
                     "type": "string",
-                    "description": "Name of the street given in user input; empty if missing"
+                    "description": "Straßenname aus der Nutzereingabe; leer, falls fehlt"
                 },
                 "street_number": {
                     "type": "string",
-                    "description": "Street number given in user input; empty if missing"
+                    "description": "Hausnummer aus der Nutzereingabe; leer, falls fehlt"
                 },
                 "postal_code": {
                     "type": "string",
-                    "description": "Postal code given in user input; empty if missing"
+                    "description": "Postleitzahl aus der Nutzereingabe; leer, falls fehlt"
                 },
                 "city_name": {
                     "type": "string",
-                    "description": "Name of the city given in user input; empty if missing"
+                    "description": "Stadtname aus der Nutzereingabe; leer, falls fehlt"
                 }
             },
             "required": [
@@ -263,6 +314,7 @@ class GewerbeanmeldungValidators(BaseValidators):
                 "city_name"
             ]
         }
+
         if llm_service is None:
             llm_service = LLMValidatorService()
 
