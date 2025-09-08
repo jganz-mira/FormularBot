@@ -179,3 +179,28 @@ def utter_message_with_translation(history, prompt:str, target_lang:str, source_
         history.append(ChatMessage(role='assistant', content = translate_from_de(prompt,target_lang)))
     return history
 
+def compose_prompt_for_slot(slot_def: Dict[str, Any]) -> str:
+    """
+    Baut den Prompt für einen Slot:
+    - nimmt 'prompt' (oder 'description' als Fallback)
+    - hängt bei choice-Slots die nummerierten Optionen an
+    - hängt (falls vorhanden) 'additional_information' an (Markdown/HTML möglich)
+    """
+    prompt = slot_def.get("prompt", slot_def.get("description", "")) or ""
+
+    # Choices anhängen
+    if slot_def.get("slot_type") == "choice":
+        opts = slot_def.get("choices", [])
+        if opts:
+            prompt += "\n" + "\n".join(f"{i+1}. {o}" for i, o in enumerate(opts))
+
+    # Zusätzliche Infos anhängen
+    add_info = slot_def.get("additional_information")
+    if add_info:
+        if isinstance(add_info, list):
+            extra = "\n\n" + "\n".join(add_info)
+        else:
+            extra = "\n\n" + str(add_info)
+        prompt += extra
+
+    return prompt

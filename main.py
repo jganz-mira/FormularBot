@@ -75,7 +75,7 @@ def main(**kwargs):
 
 
     with gr.Blocks() as demo:
-        chatbot = gr.Chatbot(type='messages')
+        chatbot = gr.Chatbot(type='messages', render_markdown=True)
         state = gr.State(value=None)
         txt = gr.Textbox(placeholder="Hier tippen...")
 

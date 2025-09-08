@@ -2,7 +2,7 @@
 from typing import Optional, Tuple, List, Dict, Any
 import os
 from .validators import BaseValidators, GewerbeanmeldungValidators
-from .bot_helper import load_forms, next_slot_index, print_summary, map_yes_no_to_bool, save_responses_to_json, utter_message_with_translation
+from .bot_helper import load_forms, next_slot_index, print_summary, map_yes_no_to_bool, save_responses_to_json, utter_message_with_translation, compose_prompt_for_slot
 from .llm_validator_service import LLMValidatorService
 from openai import OpenAI
 from gradio import ChatMessage
@@ -172,13 +172,14 @@ def chatbot_fn(
         slots = FORMS[state["form_type"]]["slots"]
         first_slot = slots[0]
 
-        # Prompt bauen (ggf. später lokalisieren)
-        prompt = first_slot.get("prompt", first_slot.get("description", ""))
+        # # Prompt bauen (ggf. später lokalisieren)
+        # prompt = first_slot.get("prompt", first_slot.get("description", ""))
 
-        # Choice-Optionen anfügen (nummeriert)
-        if first_slot.get("slot_type") == "choice":
-            options = first_slot["choices"]
-            prompt += "\n" + "\n".join(f"{i+1}. {o}" for i, o in enumerate(options))
+        # # Choice-Optionen anfügen (nummeriert)
+        # if first_slot.get("slot_type") == "choice":
+        #     options = first_slot["choices"]
+        #     prompt += "\n" + "\n".join(f"{i+1}. {o}" for i, o in enumerate(options))
+        prompt = compose_prompt_for_slot(first_slot)
 
         # Bot-Ausgabe + Turn hier beenden, damit 'message' nicht als Slot-Antwort verarbeitet wird
         history = utter_message_with_translation(history, prompt, state.get('lang'))
@@ -217,9 +218,10 @@ def chatbot_fn(
                 prompt = FORMS[state['form_type']]['slots'][edit_idx].get('prompt', FORMS[state['form_type']]['slots'][edit_idx].get('description', ''))
                 # Falls Choice-Slot, Optionen anhängen
                 slot_def = slots_def[edit_idx]
-                if slot_def['slot_type'] == 'choice':
-                    opts = slot_def['choices']
-                    prompt += "\n" + "\n".join(f"{i+1}. {o}" for i, o in enumerate(opts))
+                # if slot_def['slot_type'] == 'choice':
+                #     opts = slot_def['choices']
+                #     prompt += "\n" + "\n".join(f"{i+1}. {o}" for i, o in enumerate(opts))
+                prompt = compose_prompt_for_slot(slot_def)
                 history = utter_message_with_translation(history = history, prompt=prompt, target_lang = state.get('lang'))
                 return history, state, ""
         # Wenn Klassifikation fehlschlägt, weiter normal
@@ -323,11 +325,11 @@ def chatbot_fn(
         next_slot_def   = slots_def[next_idx]
         next_slot_name = next_slot_def["slot_name"]
         prompt = next_slot_def.get('prompt', next_slot_def.get('description', ''))
-        if next_slot_def["slot_type"] == "choice":
-            opts = next_slot_def["choices"]
-            opt_lines = "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(opts))
-            prompt += "\n" + opt_lines
-
+        # if next_slot_def["slot_type"] == "choice":
+        #     opts = next_slot_def["choices"]
+        #     opt_lines = "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(opts))
+        #     prompt += "\n" + opt_lines
+        prompt = compose_prompt_for_slot(next_slot_def)
         history = utter_message_with_translation(history,prompt,state.get('lang'))
     else:
         history = utter_message_with_translation(history, "Vielen Dank! Das Formular ist abgeschlossen.", state.get('lang'))
