@@ -7,6 +7,7 @@ import gradio as gr
 import uuid
 from src.bot_helper import save_responses_to_json
 from src.pdf_backend import GenericPdfFiller
+from pathlib import Path
 
 def initial_prompt() -> str:
         """
@@ -72,7 +73,7 @@ def main(**kwargs):
     share = kwargs.get("share", False)
     debug = kwargs.get("debug", False)
     enable_download = kwargs.get("enable_download", False)
-
+    gr.set_static_paths(paths=[Path.cwd().absolute() / "images"])
 
     with gr.Blocks() as demo:
         chatbot = gr.Chatbot(type='messages', render_markdown=True)
