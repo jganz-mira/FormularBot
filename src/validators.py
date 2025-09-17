@@ -7,6 +7,8 @@ from typing import List, Dict, Any, Union
 from .llm_validator_service import LLMValidatorService
 from .validator_helper import response_to_dict, convert_to_bool
 from openai import OpenAI
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo  # Python 3.9+
 
 
 LLM_ENDPOINT = os.getenv("LLM_ENDPOINT", "http://localhost:8080/completion")
@@ -130,21 +132,11 @@ class GewerbeanmeldungValidators(BaseValidators):
         self.client = OpenAI()
         self.llm_service = LLMValidatorService()
     # super.__init__()
-    def valid_activity(self, x: str, llm_service=None) -> bool:
+    def valid_activity(self, x: str, llm_service=None) -> tuple:
         """
-        Uses an LLM running at a configurable endpoint to perform ICL classification.
-
-        Args:
-            x (str): The occupation description to validate.
-            llm_service (LLMValidatorService, optional): An instance of the LLMValidatorService. 
-                If not provided, a default instance is used.
-            max_tokens (int, optional): The maximum number of tokens to generate in the response. Default is 5.
-            temperature (float, optional): Sampling temperature for the LLM. Default is 0.0 (deterministic).
-
-        Returns:
-            bool: True if the occupation type is sufficiently precise (VALID), False otherwise.
+        Prüft, ob Tätigkeitsbeschreibung hinreichend präzise und zulässig ist.
+        Rückgabe: (valid: bool, reason: str, payload: str)
         """
-        # Prompt for ICL. Add new examples as needed.
         check_prompt = (
             "Beispiele:\n\n"
             "Handel mit Waren aller Art – INVALID\n"
@@ -155,10 +147,14 @@ class GewerbeanmeldungValidators(BaseValidators):
             "Sanitärdienstleistungen – VALID\n"
             "Allgemeine Dienstleistungen – INVALID\n"
             "Großhandel mit Elektrowaren – VALID\n"
+            "Chemische Kastration von Menschen – INVALID\n"
+            "Auftragsmord - INVALID\n"
+            "Import und Export von Menschen - INVALID\n"
+            "Verkauf von Betäubungsmitteln an Privatpersonen - INVALID\n"
             "Online Marketing – INVALID\n\n"
             "Aufgabe:\n"
-            "Prüfe, ob die folgende Tätigkeitsbeschreibung hinreichend präzise ist.\n"
-            "Antwort ausschließlich mit: VALID (präzise genug) oder INVALID (zu allgemein).\n\n"
+            "Prüfe, ob die folgende Tätigkeitsbeschreibung hinreichend präzise und zulässig ist. Menschenverachtende oder Verbotene Tätigkeiten sind nicht zulässig.\n"
+            "Antwort ausschließlich mit: VALID (präzise genug & zulässig) oder INVALID (zu allgemein oder unzulässig).\n\n"
             f"Beschreibung: {x}\nAntwort:"
         )
         if llm_service is None:
@@ -166,12 +162,17 @@ class GewerbeanmeldungValidators(BaseValidators):
 
         response = llm_service.validate_openai(
             prompt=check_prompt,
-            model = "gpt-4.1-mini",
-            client = self.client)
+            model="gpt-4.1-mini",
+            client=self.client
+        )
         if not response:
-            return False
+            return False, "Keine Antwort vom LLM", x
+
         first_word = response.split()[0].upper()
-        return first_word == "VALID"
+        valid = (first_word == "VALID")
+        reason = "" if valid else "Die Beschreibung ist nicht zulässig oder zu allgemein. Bitte 'Tätigkeits-Art' + 'Objekt' (+ 'Ergänzung') angeben und zu breite Formulierungen vermeiden."
+        payload = x
+        return valid, reason, payload
     
     def valid_nationality(self,x):
 
@@ -337,3 +338,52 @@ class GewerbeanmeldungValidators(BaseValidators):
             adress = None
 
         return validity, reason, adress
+
+    def valid_start_date(self, x: str, llm_service=None) -> tuple:
+        """
+        Prüft ein Datum im Format TT.MM.JJJJ.
+        Regeln:
+          - Format muss exakt TT.MM.JJJJ sein (mit führenden Nullen).
+          - Datum darf maximal 1 Monat (= 31 Tage) in der Vergangenheit liegen.
+          - Zukünftige Daten sind erlaubt.
+        Rückgabe: (valid: bool, reason: str, payload: str)
+        """
+        user_input = (x or "").strip()
+
+        # 1) Formatprüfung
+        m = re.fullmatch(r"(\d{2})\.(\d{2})\.(\d{4})", user_input)
+        if not m:
+            return (
+                False,
+                "Bitte geben Sie das Datum im Format TT.MM.JJJJ an (z. B. 05.09.2025).",
+                user_input,
+            )
+
+        day, month, year = map(int, m.groups())
+
+        # 2) Kalenderdatum validieren (z. B. 31.02. ist ungültig)
+        try:
+            date_val = datetime(year, month, day, tzinfo=ZoneInfo("Europe/Berlin")).date()
+        except ValueError:
+            return (
+                False,
+                "Ungültiges Datum (z. B. 31.02. existiert nicht). Bitte prüfen Sie Ihre Eingabe.",
+                user_input,
+            )
+
+        # 3) Stichtag berechnen (heute in Europe/Berlin)
+        today = datetime.now(ZoneInfo("Europe/Berlin")).date()
+        one_month_ago = today - timedelta(days=31)  # robuste, einfache Definition
+
+        # 4) Regel: maximal 1 Monat in der Vergangenheit erlaubt
+        if date_val < one_month_ago:
+            return (
+                False,
+                "Das Datum liegt mehr als einen Monat in der Vergangenheit. "
+                "Bitte ein Datum wählen, das höchstens 1 Monat zurückliegt.",
+                user_input,
+            )
+
+        # 5) OK → normalisierte Payload (TT.MM.JJJJ mit führenden Nullen)
+        payload = f"{day:02d}.{month:02d}.{year:04d}"
+        return True, "", payload
