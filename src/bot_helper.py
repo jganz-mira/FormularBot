@@ -175,6 +175,8 @@ def utter_message_with_translation(history, prompt:str, target_lang:str, source_
         history.append(ChatMessage(role="assistant", content = prompt))
     elif source_lang != None and target_lang == source_lang:
         history.append(ChatMessage(role="assistant", content = prompt))
+    elif target_lang == None: # no message selected yet -> wizards utters message in user language
+        history.append(ChatMessage(role="assistant", content = prompt))
     else:
         history.append(ChatMessage(role='assistant', content = translate_from_de(prompt,target_lang)))
     return history
