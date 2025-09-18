@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any, Tuple, List
 import json
 from openai import OpenAI
 import json, re
+from .translator import translate_from_de
 
 def code_to_label(code: str) -> str:
     return {"de":"Deutsch","en":"English","fr":"Français","tr":"Türkçe"}.get(code, code)
@@ -371,7 +372,9 @@ class FormSelectionWizard:
                 "en": "You can enter the number or the name.",
                 "fr": "Vous pouvez saisir le numéro ou le nom.",
                 "tr": "Numarayı veya adı girebilirsiniz."
-            }.get(s.lang_code, "You can enter the number or the name.")
+            }.get(s.lang_code, False)
+            if not hint:
+                hint = translate_from_de(text_de = "Sie können die Nummer oder den Namen eingeben.", target_lang=s.lang_code)
             return f"{prompt}\n{numbered}\n\n{hint}", False, s.lang_code
 
         # 2) Auswahl verarbeiten (unverändert)
@@ -389,7 +392,9 @@ class FormSelectionWizard:
                         "en":"Got it. We'll start with the form:",
                         "fr":"Compris. Nous commençons avec le formulaire :",
                         "tr":"Anlaşıldı. Şu form ile başlıyoruz:"
-                    }.get(s.lang_code, "OK. We'll start with the form:")
+                    }.get(s.lang_code, False)
+                    if not confirm:
+                        confirm = translate_from_de(text_de = "Verstanden. Wir starten mit dem Formular:", target_lang=s.lang_code)
                     return f"{confirm} **{s.translated_labels[idx]}**", True, s.lang_code
 
             # b) Exakter Text-Match (übersetzte Labels)
@@ -403,7 +408,9 @@ class FormSelectionWizard:
                         "en":"Got it. We'll start with the form:",
                         "fr":"Compris. Nous commençons avec le formulaire :",
                         "tr":"Anlaşıldı. Şu form ile başlıyoruz:"
-                    }.get(s.lang_code, "OK. We'll start with the form:")
+                    }.get(s.lang_code, False)
+                    if not confirm:
+                        confirm = translate_from_de(text_de = "Verstanden. Wir starten mit dem Formular:", target_lang=s.lang_code)
                     return f"{confirm} **{lab}**", True, s.lang_code
 
             # c) Ungültig -> erneut anzeigen
@@ -412,7 +419,9 @@ class FormSelectionWizard:
                 "en":"Invalid choice. Please choose again.",
                 "fr":"Choix invalide. Veuillez recommencer.",
                 "tr":"Geçersiz seçim. Lütfen tekrar seçin."
-            }.get(s.lang_code, "Invalid choice. Please choose again.")
+            }.get(s.lang_code, False)
+            if not retry:
+                retry = translate_from_de(text_de = "Ungültige Auswahl. Bitte wählen Sie erneut.", target_lang=s.lang_code)
             numbered = self._format_numbered_list(s.translated_labels)
             return f"{retry}\n{numbered}", False, s.lang_code
 
