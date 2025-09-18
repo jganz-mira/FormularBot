@@ -7,8 +7,8 @@ from .llm_validator_service import LLMValidatorService
 from openai import OpenAI
 from gradio import ChatMessage
 from .pdf_backend import GenericPdfFiller
-from .wizards import LanguageWizard, LanguageWizardState, FormSelectionWizard, FormSelectionWizardState
-from .translator import translate_from_de
+from .wizards import LanguageWizard, LanguageWizardState, FormSelectionWizard, FormSelectionWizardState, ActivityWizard, ActivityWizardState 
+from .translator import translate_from_de, translate_to_de
 
 # form_path = "../forms/ge"   # Passe ggf. den Pfad an
 # Basisverzeichnis bestimmen
@@ -42,6 +42,8 @@ def build_wizard_from_state(name: str, data: dict):
         return LanguageWizard(LanguageWizardState(**(data or {})))
     if name == "form_selection_wizard":
         return FormSelectionWizard(FormSelectionWizardState(**(data or {})))
+    # if name == "activity_wizard":  # NEU
+    #     return ActivityWizard(ActivityWizardState(**(data or {})))
     return None
 
 # Assume FORMS is a dict loaded at startup mapping form keys to their JSON configs,
@@ -132,7 +134,26 @@ def chatbot_fn(
                 )
                 state["active_wizard"] = "form_selection_wizard"
             else:
-                # Kein Wizard nötig → AUS DER SCHLEIFE RAUS
+                # # >>> NEU: Activity-Wizard auto-starten, wenn aktueller Slot 'activity' ist
+                # form_key = state.get("form_type")
+                # if form_key:
+                #     slots_def = FORMS[form_key]["slots"]
+                #     cur_idx, _ = next_slot_index(slots_def, state)
+                #     if cur_idx is not None:
+                #         slot_def = slots_def[cur_idx]
+                #         slot_name = slot_def.get("slot_name")
+                #         # Option A: fester Slotname
+                #         if slot_name == "activity" or slot_def.get("use_activity_wizard") is True:
+                #             wizard = ActivityWizard(
+                #                 ActivityWizardState(lang_code=state.get("lang"))
+                #             )
+                #             state["active_wizard"] = "activity_wizard"
+                #         else:
+                #             # Kein Wizard nötig → AUS DER SCHLEIFE RAUS
+                #             break
+                #     else:
+                #         # Kein Wizard nötig → AUS DER SCHLEIFE RAUS
+                #         break
                 break
 
         # Wenn Wizard frisch gestartet wurde (turns == 0): step(None) → Initialprompt
@@ -153,12 +174,26 @@ def chatbot_fn(
                     state["idx"] = 0
                     state["pdf_file"] = FORMS[selected]["pdf_file"]
                     state["awaiting_first_slot_prompt"] = True
-            # Wizard schließen und ggf. direkt den nächsten Wizard im selben Turn starten
+            elif state["active_wizard"] == "activity_wizard":  # NEU
+                # Ergebnis in responses einsetzen und Slot weiterschalten
+                final_text = state["wizard_state"].get("final_activity_text")
+                if final_text:
+                    # Wir müssen wissen, welcher Slot gerade dran war:
+                    slots_def = FORMS[state["form_type"]]["slots"]
+                    cur_idx, _ = next_slot_index(slots_def, state)
+                    if cur_idx is not None:
+                        slot_def = slots_def[cur_idx]
+                        if slot_def.get("slot_name") == "activity":
+                            target_filed_name = slot_def.get("filed_name")
+                            state["responses"]["activity"] = {
+                                "value": final_text,
+                                "target_filed_name": target_filed_name
+                            }
+                            # current slot erledigt → Index erhöhen
+                            state["idx"] = cur_idx + 1
+            # Wizard schließen
             state["active_wizard"] = None
             state["wizard_state"] = None
-
-            # continue → springt an den Schleifenanfang (Language → Form) ODER
-            # wenn nichts mehr zu tun ist, trifft das nächste if auf break.
             continue
         else:
             # Wizard wartet auf Nutzerantwort → Turn HIER beenden, restlicher Bot-Flow pausiert
@@ -292,10 +327,16 @@ def chatbot_fn(
         elif slot_type== "text":
             fn = getattr(validators, f"valid_{slot_name}", BaseValidators.valid_basic) # dynamically get a validator for the current filed if there is one
 
+            # translate to german if necessary
+            if state.get('lang') and state.get('lang') != 'de':
+                message = translate_to_de(message, state.get('lang'))
+
             valid, reason, payload = fn(message)
             if not valid: # if input is not valid
                 history = utter_message_with_translation(history, f"Ungültige Eingabe.\n{reason}\nBitte versuche es nocheinmal.", state.get('lang'))
                 return history, state, ""
+            elif valid and reason != "":
+                history = utter_message_with_translation(history, reason, state.get('lang'))
             # if input is valid
             state["responses"][slot_name] = {"value" : payload, "target_filed_name": target_filed_name}
 
