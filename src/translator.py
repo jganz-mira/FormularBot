@@ -1,7 +1,30 @@
 from typing import Optional
 from openai import OpenAI
 
-SUPPORTED = {"de","en","fr","tr"}
+SUPPORTED = {
+    "de",  # Deutsch
+    "en",  # Englisch
+    "fr",  # Französisch
+    "tr",  # Türkisch
+    "zh",  # Chinesisch (Mandarin)
+    "es",  # Spanisch
+    "hi",  # Hindi
+    "ar",  # Arabisch
+    "bn",  # Bengalisch
+    "pt",  # Portugiesisch
+    "ru",  # Russisch
+    "ja",  # Japanisch
+    "it",  # Italienisch
+    "nl",  # Niederländisch
+    "sv",  # Schwedisch
+    "pl",  # Polnisch
+    "ko",  # Koreanisch
+    "fa",  # Persisch
+    "cs",  # Tschechisch
+    "el",  # Griechisch
+    "he",  # Hebräisch
+}
+
 
 def translate_from_de(text_de: str, target_lang: str, client: Optional[OpenAI] = None, model: str = "gpt-4.1-mini") -> str:
     """
@@ -62,8 +85,8 @@ def translate_to_de(text_src: str, source_lang: str, client: Optional[OpenAI] = 
     resp = client.responses.create(
         model=model,
         input=[
-            {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
-            {"role": "user",   "content": [{"type": "text", "text": text_src}]},
+            {"role": "system", "content": [{"type": "input_text", "text": system_prompt}]},
+            {"role": "user",   "content": [{"type": "input_text", "text": text_src}]},
         ],
     )
 
