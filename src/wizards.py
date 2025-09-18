@@ -38,7 +38,7 @@ class LanguageWizard:
         system_prompt = (
             "You are a language detector and copywriter. "
             "1) Decide in which language the USER WANTS TO COMMUNICATE. Prefer explicit user intent over text language. "
-            "2) Return a short confirmation question in that language asking the user if they want to continue in that language. "
+            "2) Return a short confirmation question in that language asking the user if they want to continue in that language."
             "3) Use ISO 639-1 code (de/en/fr/tr if applicable)."
         )
         schema = {
@@ -100,7 +100,7 @@ class LanguageWizard:
         resp = self.client.responses.create(
             model=self.model,
             input=[
-                {"role":"system","content":"Classify if the user message is a YES/approval or NO/rejection. If approval, formulate a short message like 'Great — we'll continue in English.' in the users language (confirmation_prompt)."},
+                {"role":"system","content":"Classify if the user message is a YES/approval or NO/rejection. If approval, formulate a short message with a warning like '\nPlease note: Your input will be translated to German for form filling. Please check the final form carefully before submission. (confirmation_prompt)."},
                 {"role":"user","content":user_text}
             ],
             store=True,
@@ -219,10 +219,10 @@ class LanguageWizard:
             if fast_yn is True:
                 s.awaiting_confirmation = False
                 done_msg = {
-                    "de":"Alles klar – wir sprechen Deutsch. ✅",
-                    "en":"Great — we'll continue in English. ✅",
-                    "fr":"Parfait — nous continuons en français. ✅",
-                    "tr":"Harika — Türkçe devam edelim. ✅"
+                    "de": "Alles klar – wir sprechen Deutsch. ✅",
+                    "en": "Great — we'll continue in English. ✅\nPlease note: Your input will be translated to German for form filling. Please check the final form carefully before submission.",
+                    "fr": "Parfait — nous continuons en français. ✅\nVeuillez noter : vos saisies seront traduites en allemand pour le remplissage du formulaire. Veuillez vérifier attentivement le formulaire final avant de le soumettre.",
+                    "tr": "Harika — Türkçe devam edelim. ✅\nLütfen dikkat: Girdiniz form doldurma için Almancaya çevrilecektir. Lütfen formu göndermeden önce dikkatlice kontrol edin.",
                 }.get(s.lang_code, "Okay — language set. ✅")
                 s.history.append(("assistant", done_msg))
                 return done_msg, True, s.lang_code

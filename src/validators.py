@@ -37,66 +37,43 @@ class BaseValidators:
 
         validity = isinstance(x, str) and len(x.strip()) > 2
 
-        reason = '' if validity else "Name must at least have three characters"
+        reason = '' if validity else "Der Name muss mindestens drei Zeichen lang sein."
 
         payload = x if validity else ''
 
         return validity, reason, payload
     
-    # @staticmethod 
-    # def valid_not_empty(x:Union[str,int]) -> bool:
-    #     '''
-    #     Checks whether a filed is not empty
-    #     '''
-    #     return len(x.strip()) > 2
+    @staticmethod 
+    def valid_not_empty(x:Union[str,int]) -> bool:
+        '''
+        Checks whether a filed is not empty
+        '''
+        if len(x.strip()) > 2:
+            return True, "", x
+        else:
+            return False, "Dieses Feld darf nicht leer bleiben.", ""
 
-    # @staticmethod
-    # def valid_date(x:str) -> bool:
-    #     """
-    #     Dates have to be in the format TT.MM.JJJJ.
-    #     """
-    #     try:
-    #         datetime.datetime.strptime(x, "%d.%m.%Y")
-    #         return True
-    #     except Exception:
-    #         return False
+    @staticmethod
+    def valid_date(x:str) -> bool:
+        """
+        Dates have to be in the format TT.MM.JJJJ.
+        """
+        try:
+            datetime.datetime.strptime(x, "%d.%m.%Y")
+            return True, "", x
+        except Exception:
+            return False, "Bitte geben Sie das Datum im korrekten Format (TT.MM.JJJJ) an.", ""
         
-    # @staticmethod
-    # def valid_phone(x:str) -> bool:
-    #     """
-    #     Basic check, overwrite for more sophisticated check.
-    #     """
-    #     return bool(re.fullmatch(r"[+\d][\d\s\-/]{4,}", x))
+    @staticmethod
+    def valid_phone(x:str) -> bool:
+        """
+        Basic check, overwrite for more sophisticated check.
+        """
+        if bool(re.fullmatch(r"[+\d][\d\s\-/]{4,}", x)):
+            return True, "", x
+        else:
+            return False, "Bitte geben Sie eine gültige Telefonnummer an (mindestens 5 Ziffern, kann Leerzeichen, +, - und / enthalten).", ""
     
-    # @staticmethod
-    # def valid_adresse(x:str)-> bool:
-    #     """
-    #     Basic check, overwrite for more sophisticated check.
-    #     """
-    #     return isinstance(x, str) and len(x.strip()) > 7
-    
-    # @staticmethod
-    # def valid_full_adress(x:str) -> bool:
-    #     """
-    #     Validates German addresses in the format:
-    #     Straße, Hausnummer, Postleitzahl, Ort
-    #     e.g. "Musterstraße, 12, 12345, Musterstadt"
-    #     """
-    #     pattern = re.compile(
-    #         r'^'                              # start of string
-    #         r'[A-ZÄÖÜ]'                       # street starts with capital letter
-    #         r'[A-Za-zäöüÄÖÜß\s\.-]+'          # rest of street (letters, spaces, dot, hyphen)
-    #         r',\s*'                           # comma + optional whitespace
-    #         r'\d+'                            # house number (one or more digits)
-    #         r'[A-Za-z]?'                      # optional single letter
-    #         r',\s*'                           # comma + optional whitespace
-    #         r'\d{5}'                          # five-digit postal code
-    #         r',\s*'                           # comma + optional whitespace
-    #         r'[A-ZÄÖÜ]'                       # city starts with capital letter
-    #         r'[A-Za-zäöüÄÖÜß\s\.-]+'          # rest of city (letters, spaces, dot, hyphen)
-    #         r'$'                              # end of string
-    #     )
-    #     return bool(pattern.fullmatch(x))
     
     @staticmethod
     def valid_choice_slot(message: str, slot_def: Dict[str, Any]) -> bool:
@@ -339,7 +316,7 @@ class GewerbeanmeldungValidators(BaseValidators):
 
         return validity, reason, adress
     
-    def valid_addressself(self, x, llm_service = None):
+    def valid_address(self, x, llm_service = None):
         return self.valid_representative_address(x, llm_service)
     
     def valid_main_branch_address(self, x, llm_service = None):
