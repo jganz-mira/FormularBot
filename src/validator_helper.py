@@ -32,3 +32,7 @@ def convert_to_bool(input):
         return False
     else:
         raise f"Invalid Input {input} for conversion, must either be 'VALID' or 'INVALID' not {input}"
+    
+def load_txt(path: str) -> str:
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()

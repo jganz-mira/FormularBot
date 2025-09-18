@@ -2,16 +2,21 @@ import datetime
 import re
 import os
 
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, Literal, Optional
 
 from .llm_validator_service import LLMValidatorService
-from .validator_helper import response_to_dict, convert_to_bool
+from .validator_helper import response_to_dict, convert_to_bool, load_txt
 from openai import OpenAI
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo  # Python 3.9+
+from pydantic import BaseModel
 
 
 LLM_ENDPOINT = os.getenv("LLM_ENDPOINT", "http://localhost:8080/completion")
+
+class PermitSchema(BaseModel):
+    validity: Literal["VALID", "INVALID"]
+    permit_reason: Optional[str] = None
 
 class BaseValidators:
     '''This class holds the most basic validation functions, each more specific 
@@ -172,7 +177,52 @@ class GewerbeanmeldungValidators(BaseValidators):
         valid = (first_word == "VALID")
         reason = "" if valid else "Die Beschreibung ist nicht zulässig oder zu allgemein. Bitte 'Tätigkeits-Art' + 'Objekt' (+ 'Ergänzung') angeben und zu breite Formulierungen vermeiden."
         payload = x
+        print(valid)
+        # If valid, further check if a permit may be required
+        if valid:
+            print("check permit")
+            needs_permit, permit_reason, _ = self.check_if_permit_is_required(x)
+            if needs_permit == 'VALID':
+                reason = permit_reason + ' Weitere Informationen finden Sie hier: <a href=\"https://www.ihk.de/konstanz/recht-und-steuern/gewerberecht/einzelne-berufe/erlaubnispflichtigegewerbe13180-1672696 \" target=\"_blank\">hier</a>.'
+
+
+
         return valid, reason, payload
+    
+    def check_if_permit_is_required(self, x: str, llm_service=None) -> tuple:
+        """ Takes the User inut and checks, whether a permit may be needed for the activity."""
+
+        # load pdf document which contains a list of activities which require a permit
+        permit_list = load_txt('./data/jobs_which_need_permit.txt')
+        
+
+        system_prompt = f"""Du bist ein Assistent, welcher Tätigkeitsbeschreibungen mit den in der folgenden Liste
+                        definierten Berfusbezeichnungen abgleicht, und die Berufsbezeichnung als Erlaubnisbedürftig (VALID) oder nicht Erlaubnisbedürftig (INVALID) klassifiziert (validity).
+                        Ist eine Berufsbezeichnung möglicherweise Erlaubnispflichtig, dann gib den Grund dafür in einem kurzen, erklärenden Satz an (permit_reason)
+                        'Die angegebene Tätigkeit ist möglicherweise erlaubnispflichtig nach ....'.
+                        Eine Tätigkeit muss nicht zwingend vollständig mit der 
+                        Tätigkeitsbeschreibung übereinstimmen, sondern es reicht, wenn die Tätigkeit inhaltlich ähnlich ist. Wenn die Tätigkeit nicht erlaubnispflichtig ist, dann lasse das Feld
+                        permit_reason leer. Antworte ausschließlich mit dem JSON-Objekt, ohne weitere Erklärungen. Du kannst die Informationen aus der Liste
+                        für die Erklärung übernehmen, aber **unter keinen Umständen darfst du neue erfinden oder vorhandene Ändern. Das ist von höchster Priorität**.\n **Die Liste:**{permit_list}"""
+
+
+        if llm_service is None:
+            llm_service = LLMValidatorService()
+
+        response = llm_service.validate_openai_structured_output(
+            system_prompt = system_prompt,
+            user_input = x,
+            json_schema = PermitSchema,
+            client = self.client,
+            model = 'gpt-5-mini'
+        )
+        validity = response.output_parsed.validity
+        reason = response.output_parsed.permit_reason
+
+        # extrahiere validity nach validity, reason nach reason und payload bleibt leer
+        return validity, reason, ''
+
+
     
     def valid_nationality(self,x):
 
@@ -214,16 +264,6 @@ class GewerbeanmeldungValidators(BaseValidators):
         return self.valid_full_adress(x)
 
     def valid_representative_address(self, x, llm_service = None) -> bool:
-        # system_prompt = (
-        #     "Task: Extract from the user input the street name, house number, postal code, and city name. "
-        #     "If all details are present, return 'VALID';  If even one piece of information is missing (e.g no postal code, no street number, no city name, no street name), return 'INVALID' (validity).\n"
-        #     "If you encounter minor typos in the city name, return the corrected name to city_name \n"
-        #     "If 'INVALID', briefly provide in the field invalid_reason a concise description of why the input is 'INVALID' "
-        #     "(e.g., missing house number, missing postal code, incorrect postal code ...)\n"
-        #     "IMPORTANT: Strictly adhere to the JSON format specified. **Under no circumstances invent missing information**. No free text, no explanations"
-        #     "**this is of the utmost importance.** "
-        #     "A valid postal code must be a German postal code consisting of exactly 5 digits between 01000 and 99999."
-        # )
         system_prompt = (
             "Aufgabe: Extrahiere aus der Nutzereingabe den Straßennamen, die Hausnummer, die Postleitzahl und den Stadtnamen. "
             "Wenn alle Angaben vorhanden sind, gib 'VALID' zurück; wenn auch nur eine Information fehlt "
@@ -236,46 +276,6 @@ class GewerbeanmeldungValidators(BaseValidators):
             "Eine gültige Postleitzahl muss eine deutsche Postleitzahl mit genau 5 Ziffern zwischen 01000 und 99999 sein."
         )
 
-
-        # address_schema = {
-        #     "type": "object",
-        #     "additionalProperties": False,
-        #     "properties": {
-        #         "validity": {
-        #             "type": "string",
-        #             "enum": ["VALID", "INVALID"],
-        #             "description": "VALID if input is valid, false INVALID"
-        #         },
-        #         "invalid_reason": {
-        #             "type": "string",
-        #             "description": "Reason for invalidity; empty if valid"
-        #         },
-        #         "street_name": {
-        #             "type": "string",
-        #             "description": "Name of the street given in user input; empty if missing"
-        #         },
-        #         "street_number": {
-        #             "type": "string",
-        #             "description": "Street number given in user input; empty if missing"
-        #         },
-        #         "postal_code": {
-        #             "type": "string",
-        #             "description": "Postal code given in user input; empty if missing"
-        #         },
-        #         "city_name": {
-        #             "type": "string",
-        #             "description": "Name of the city given in user input; empty if missing"
-        #         }
-        #     },
-        #     "required": [
-        #         "validity",
-        #         "invalid_reason",
-        #         "street_name",
-        #         "street_number",
-        #         "postal_code",
-        #         "city_name"
-        #     ]
-        # }
         address_schema = {
             "type": "object",
             "additionalProperties": False,
@@ -338,6 +338,12 @@ class GewerbeanmeldungValidators(BaseValidators):
             adress = None
 
         return validity, reason, adress
+    
+    def valid_addressself(self, x, llm_service = None):
+        return self.valid_representative_address(x, llm_service)
+    
+    def valid_main_branch_address(self, x, llm_service = None):
+        return self.valid_representative_address(x, llm_service)
 
     def valid_start_date(self, x: str, llm_service=None) -> tuple:
         """

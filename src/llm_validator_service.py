@@ -77,6 +77,20 @@ class LLMValidatorService:
         }
     )
         return resp
-            
+    
+    def validate_openai_structured_output(self,system_prompt: str, user_input: str, json_schema:BaseModel, model:str, client: OpenAI):
+        response = client.responses.parse(
+        model=model,
+        input=[
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": user_input,
+            },
+        ],
+        text_format=json_schema,
+    )
+        return response
+                
 
     
