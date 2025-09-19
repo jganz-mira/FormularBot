@@ -18,6 +18,10 @@ class PermitSchema(BaseModel):
     validity: Literal["VALID", "INVALID"]
     permit_reason: Optional[str] = None
 
+class ActivityCheckResponse(BaseModel):
+    validity: Literal["VALID", "INVALID"]
+    reason: Optional[str] = None
+
 class BaseValidators:
     '''This class holds the most basic validation functions, each more specific 
     validators class can inherit from this class'''
@@ -114,6 +118,58 @@ class GewerbeanmeldungValidators(BaseValidators):
         self.client = OpenAI()
         self.llm_service = LLMValidatorService()
     # super.__init__()
+    # def valid_activity(self, x: str, llm_service=None) -> tuple:
+    #     """
+    #     Prüft, ob Tätigkeitsbeschreibung hinreichend präzise und zulässig ist.
+    #     Rückgabe: (valid: bool, reason: str, payload: str)
+    #     """
+    #     check_prompt = (
+    #         "Beispiele:\n\n"
+    #         "Handel mit Waren aller Art – INVALID\n"
+    #         "Herstellung von Kinderspielwaren – VALID\n"
+    #         "Dienstleistungen aller Art – INVALID\n"
+    #         "Selbstständigkeit im Bereich Liefer- und Kurierdienste – VALID\n"
+    #         "Dinge verkaufen – INVALID\n"
+    #         "Sanitärdienstleistungen – VALID\n"
+    #         "Allgemeine Dienstleistungen – INVALID\n"
+    #         "Großhandel mit Elektrowaren – VALID\n"
+    #         "Chemische Kastration von Menschen – INVALID\n"
+    #         "Auftragsmord - INVALID\n"
+    #         "Import und Export von Menschen - INVALID\n"
+    #         "Verkauf von Betäubungsmitteln an Privatpersonen - INVALID\n"
+    #         "Online Marketing – INVALID\n\n"
+    #         "Aufgabe:\n"
+    #         "Prüfe, ob die folgende Tätigkeitsbeschreibung hinreichend präzise und zulässig ist (validity). Menschenverachtende oder Verbotene Tätigkeiten sind nicht zulässig (INVALID).\n"
+    #         "Antwort ausschließlich mit: VALID (präzise genug & zulässig) oder INVALID (zu allgemein oder unzulässig).\n\n"
+    #         f"Beschreibung: {x}\nAntwort:"
+    #     )
+    #     if llm_service is None:
+    #         llm_service = LLMValidatorService()
+
+    #     response = llm_service.validate_openai(
+    #         prompt=check_prompt,
+    #         model="gpt-4.1-mini",
+    #         client=self.client
+    #     )
+    #     if not response:
+    #         return False, "Keine Antwort vom LLM", x
+
+    #     first_word = response.split()[0].upper()
+    #     valid = (first_word == "VALID")
+    #     reason = "" if valid else "Die Beschreibung ist nicht zulässig oder zu allgemein. Bitte 'Tätigkeits-Art' + 'Objekt' (+ 'Ergänzung') angeben und zu breite Formulierungen vermeiden."
+    #     payload = x
+    #     print(valid)
+    #     # If valid, further check if a permit may be required
+    #     if valid:
+    #         print("check permit")
+    #         needs_permit, permit_reason, _ = self.check_if_permit_is_required(x)
+    #         if needs_permit == 'VALID':
+    #             reason = permit_reason + ' Weitere Informationen finden Sie hier: <a href=\"https://www.ihk.de/konstanz/recht-und-steuern/gewerberecht/einzelne-berufe/erlaubnispflichtigegewerbe13180-1672696 \" target=\"_blank\">hier</a>.'
+
+
+
+    #     return valid, reason, payload
+    
     def valid_activity(self, x: str, llm_service=None) -> tuple:
         """
         Prüft, ob Tätigkeitsbeschreibung hinreichend präzise und zulässig ist.
@@ -133,28 +189,31 @@ class GewerbeanmeldungValidators(BaseValidators):
             "Auftragsmord - INVALID\n"
             "Import und Export von Menschen - INVALID\n"
             "Verkauf von Betäubungsmitteln an Privatpersonen - INVALID\n"
+            "Wartung und Betrieb von Kerntechnischen Anlagen - VALID\n"
             "Online Marketing – INVALID\n\n"
             "Aufgabe:\n"
-            "Prüfe, ob die folgende Tätigkeitsbeschreibung hinreichend präzise und zulässig ist. Menschenverachtende oder Verbotene Tätigkeiten sind nicht zulässig.\n"
-            "Antwort ausschließlich mit: VALID (präzise genug & zulässig) oder INVALID (zu allgemein oder unzulässig).\n\n"
-            f"Beschreibung: {x}\nAntwort:"
+            "Prüfe, ob die folgende Tätigkeitsbeschreibung hinreichend präzise und zulässig ist (validity). Menschenverachtende oder Verbotene Tätigkeiten sind nicht zulässig (INVALID).\n"
+            "Antwort mit: VALID (präzise genug & zulässig) oder INVALID (zu allgemein oder unzulässig). Falls INVALID gib eine kurze prägnante Begründung an warum die Tätigkeitsbeschreibung INVALID ist ('Die Beschreibung ist leider ungültig weil/ da diese zu allgemein gefasst/ verboten/ menschverachtend ist.') (reason)\n\n"
         )
+
+        user_input = f"Beschreibung: {x}"
+
         if llm_service is None:
             llm_service = LLMValidatorService()
 
-        response = llm_service.validate_openai(
-            prompt=check_prompt,
-            model="gpt-4.1-mini",
-            client=self.client
+        response = llm_service.validate_openai_structured_output(
+            system_prompt=check_prompt,
+            user_input=user_input,
+            model="gpt-4o-mini",
+            client=self.client,
+            json_schema = ActivityCheckResponse
         )
         if not response:
             return False, "Keine Antwort vom LLM", x
 
-        first_word = response.split()[0].upper()
-        valid = (first_word == "VALID")
-        reason = "" if valid else "Die Beschreibung ist nicht zulässig oder zu allgemein. Bitte 'Tätigkeits-Art' + 'Objekt' (+ 'Ergänzung') angeben und zu breite Formulierungen vermeiden."
+        valid = (response.output_parsed.validity == "VALID")
+        reason = "" if valid else response.output_parsed.reason + " Bitte 'Tätigkeits-Art' + 'Objekt' (+ 'Ergänzung') angeben und zu breite Formulierungen vermeiden."
         payload = x
-        print(valid)
         # If valid, further check if a permit may be required
         if valid:
             print("check permit")
