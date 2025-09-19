@@ -37,7 +37,7 @@ class LanguageWizard:
         """
         system_prompt = (
             "You are a language detector and copywriter. "
-            "1) Decide in which language the USER WANTS TO COMMUNICATE. Prefer explicit user intent over text language. "
+            "1) Decide in which language the USER WANTS TO COMMUNICATE. Infer from the useres message. "
             "2) Return a short confirmation question in that language asking the user if they want to continue in that language."
             "3) Use ISO 639-1 code (de/en/fr/tr if applicable)."
         )
@@ -114,34 +114,61 @@ class LanguageWizard:
         return (text or "").strip().lower()
 
     def _fast_language_from_text(self, user_text: str) -> Optional[str]:
-        t = self._normalize(user_text)
+        t = self._normalize(user_text)  # z.B. lowercasing, Trim etc.
 
-        # reichlich Varianten / Sprachen
+        # Schlüsselwörter / Phrasen je Sprache
         de_keys = {
-            "de", "deutsch", "auf deutsch", "sprich deutsch", "german", "in german",
-            "bitte deutsch", "deutsche sprache"
+            "deutsch", "auf deutsch", "sprich deutsch", "german", "in german",
+            "bitte deutsch", "deutsche sprache",
+            # ISO-Code nur wenn alleinstehend (s. Logik unten): "de"
         }
         en_keys = {
-            "en", "englisch", "english", "speak english", "in english",
-            "please english", "anglo", "eng", "eng language"
+            "englisch", "english", "speak english", "in english",
+            "please english", "anglo", "eng", "eng language",
+            # "en" nur wenn alleinstehend
         }
         fr_keys = {
-            "fr", "französisch", "franzoesisch", "français", "francais",
-            "en français", "in french", "french", "parlons français"
+            "französisch", "franzoesisch", "français", "francais",
+            "en français", "in french", "french", "parlons français",
+            # häufige französische Marker:
+            "bonjour", "bonsoir", "salut", "est-ce que",
+            # "fr" nur wenn alleinstehend
         }
         tr_keys = {
-            "tr", "türkçe", "turkce", "turkish", "ingilizce degil türkçe", "türk dili",
-            "türkisch", "auf türkisch", "in turkish"
+            "türkçe", "turkce", "turkish", "ingilizce degil türkçe", "türk dili",
+            "türkisch", "auf türkisch", "in turkish",
+            # "tr" nur wenn alleinstehend
         }
 
-        # substring-checks (robust gegen Satzformen)
-        def has_any(keys): return any(k in t for k in keys)
+        # Tokenisiere in Wörter (Unicode-fähig), für exakte Wort-Matches
+        tokens = set(re.findall(r"[^\W_]+", t, flags=re.UNICODE))  # Buchstaben-/Zahlen-„Wörter“ ohne _
+
+        # Phrasen- oder Wort-Matcher (ganze Worte via Wortgrenzen)
+        def has_any(keys: set[str]) -> bool:
+            for k in keys:
+                if " " in k:
+                    # Phrase: als ganze Wörter suchen
+                    if re.search(rf"\b{re.escape(k)}\b", t):
+                        return True
+                else:
+                    # Einzelwort: exakter Wort-Match
+                    if k in tokens:
+                        return True
+            return False
+
+        # ISO-Codes akzeptieren wir nur, wenn sie allein stehen (z. B. Eingabe "de")
+        iso_alone = {"de", "en", "fr", "tr"}
+        is_only_iso = t.strip() in iso_alone and len(tokens) == 1
+
+        if is_only_iso:
+            return t.strip()
 
         if has_any(de_keys): return "de"
         if has_any(en_keys): return "en"
         if has_any(fr_keys): return "fr"
         if has_any(tr_keys): return "tr"
         return None
+
 
     def _build_confirm_prompt(self, code: str) -> str:
         return {
