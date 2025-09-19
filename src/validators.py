@@ -48,11 +48,11 @@ class BaseValidators:
         return validity, reason, payload
     
     @staticmethod 
-    def valid_not_empty(x:Union[str,int]) -> bool:
+    def valid_not_empty(x:Union[str,int], min_length = 2) -> bool:
         '''
         Checks whether a filed is not empty
         '''
-        if len(x.strip()) > 2:
+        if len(x.strip()) > min_length:
             return True, "", x
         else:
             return False, "Dieses Feld darf nicht leer bleiben.", ""
@@ -63,7 +63,7 @@ class BaseValidators:
         Dates have to be in the format TT.MM.JJJJ.
         """
         try:
-            datetime.datetime.strptime(x, "%d.%m.%Y")
+            datetime.strptime(x, "%d.%m.%Y")
             return True, "", x
         except Exception:
             return False, "Bitte geben Sie das Datum im korrekten Format (TT.MM.JJJJ) an.", ""
@@ -74,10 +74,20 @@ class BaseValidators:
         Basic check, overwrite for more sophisticated check.
         """
         if bool(re.fullmatch(r"[+\d][\d\s\-/]{4,}", x)):
-            return True, "", x
+            return True, f"Die Telfonnummer {x} wird eingetragen.", x
         else:
             return False, "Bitte geben Sie eine gültige Telefonnummer an (mindestens 5 Ziffern, kann Leerzeichen, +, - und / enthalten).", ""
-    
+
+    @staticmethod
+    def valid_email(x: str) -> tuple[bool, str, str]:
+        """
+        Basic email check, overwrite for more sophisticated check.
+        """
+        if bool(re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", x)):
+            return True, f"Die E-Mail-Adresse {x} wird eingetragen.", x
+        else:
+            return False, "Bitte geben Sie eine gültige E-Mail-Adresse im Format name@domain.tld an.", ""
+
     
     @staticmethod
     def valid_choice_slot(message: str, slot_def: Dict[str, Any]) -> bool:
@@ -117,59 +127,59 @@ class GewerbeanmeldungValidators(BaseValidators):
         # initialize client and set model, theoretically, the model for each task could be set dynamically (use different models for more or less complex tasks)
         self.client = OpenAI()
         self.llm_service = LLMValidatorService()
-    # super.__init__()
-    # def valid_activity(self, x: str, llm_service=None) -> tuple:
-    #     """
-    #     Prüft, ob Tätigkeitsbeschreibung hinreichend präzise und zulässig ist.
-    #     Rückgabe: (valid: bool, reason: str, payload: str)
-    #     """
-    #     check_prompt = (
-    #         "Beispiele:\n\n"
-    #         "Handel mit Waren aller Art – INVALID\n"
-    #         "Herstellung von Kinderspielwaren – VALID\n"
-    #         "Dienstleistungen aller Art – INVALID\n"
-    #         "Selbstständigkeit im Bereich Liefer- und Kurierdienste – VALID\n"
-    #         "Dinge verkaufen – INVALID\n"
-    #         "Sanitärdienstleistungen – VALID\n"
-    #         "Allgemeine Dienstleistungen – INVALID\n"
-    #         "Großhandel mit Elektrowaren – VALID\n"
-    #         "Chemische Kastration von Menschen – INVALID\n"
-    #         "Auftragsmord - INVALID\n"
-    #         "Import und Export von Menschen - INVALID\n"
-    #         "Verkauf von Betäubungsmitteln an Privatpersonen - INVALID\n"
-    #         "Online Marketing – INVALID\n\n"
-    #         "Aufgabe:\n"
-    #         "Prüfe, ob die folgende Tätigkeitsbeschreibung hinreichend präzise und zulässig ist (validity). Menschenverachtende oder Verbotene Tätigkeiten sind nicht zulässig (INVALID).\n"
-    #         "Antwort ausschließlich mit: VALID (präzise genug & zulässig) oder INVALID (zu allgemein oder unzulässig).\n\n"
-    #         f"Beschreibung: {x}\nAntwort:"
-    #     )
-    #     if llm_service is None:
-    #         llm_service = LLMValidatorService()
 
-    #     response = llm_service.validate_openai(
-    #         prompt=check_prompt,
-    #         model="gpt-4.1-mini",
-    #         client=self.client
-    #     )
-    #     if not response:
-    #         return False, "Keine Antwort vom LLM", x
-
-    #     first_word = response.split()[0].upper()
-    #     valid = (first_word == "VALID")
-    #     reason = "" if valid else "Die Beschreibung ist nicht zulässig oder zu allgemein. Bitte 'Tätigkeits-Art' + 'Objekt' (+ 'Ergänzung') angeben und zu breite Formulierungen vermeiden."
-    #     payload = x
-    #     print(valid)
-    #     # If valid, further check if a permit may be required
-    #     if valid:
-    #         print("check permit")
-    #         needs_permit, permit_reason, _ = self.check_if_permit_is_required(x)
-    #         if needs_permit == 'VALID':
-    #             reason = permit_reason + ' Weitere Informationen finden Sie hier: <a href=\"https://www.ihk.de/konstanz/recht-und-steuern/gewerberecht/einzelne-berufe/erlaubnispflichtigegewerbe13180-1672696 \" target=\"_blank\">hier</a>.'
-
-
-
-    #     return valid, reason, payload
+    def valid_registered_name(self,x):
+        return self.valid_name(x)
     
+    def valid_start_date(self, x: str, llm_service=None) -> tuple:
+        """
+        Prüft ein Datum im Format TT.MM.JJJJ.
+        Regeln:
+          - Format muss exakt TT.MM.JJJJ sein (mit führenden Nullen).
+          - Datum darf maximal 1 Monat (= 31 Tage) in der Vergangenheit liegen.
+          - Zukünftige Daten sind erlaubt.
+        Rückgabe: (valid: bool, reason: str, payload: str)
+        """
+        user_input = (x or "").strip()
+
+        # 1) Formatprüfung
+        m = re.fullmatch(r"(\d{2})\.(\d{2})\.(\d{4})", user_input)
+        if not m:
+            return (
+                False,
+                "Bitte geben Sie das Datum im Format TT.MM.JJJJ an (z. B. 05.09.2025).",
+                user_input,
+            )
+
+        day, month, year = map(int, m.groups())
+
+        # 2) Kalenderdatum validieren (z. B. 31.02. ist ungültig)
+        try:
+            date_val = datetime(year, month, day, tzinfo=ZoneInfo("Europe/Berlin")).date()
+        except ValueError:
+            return (
+                False,
+                "Ungültiges Datum (z. B. 31.02. existiert nicht). Bitte prüfen Sie Ihre Eingabe.",
+                user_input,
+            )
+
+        # 3) Stichtag berechnen (heute in Europe/Berlin)
+        today = datetime.now(ZoneInfo("Europe/Berlin")).date()
+        one_month_ago = today - timedelta(days=31)  # robuste, einfache Definition
+
+        # 4) Regel: maximal 1 Monat in der Vergangenheit erlaubt
+        if date_val < one_month_ago:
+            return (
+                False,
+                "Das Datum liegt mehr als einen Monat in der Vergangenheit. "
+                "Bitte ein Datum wählen, das höchstens 1 Monat zurückliegt.",
+                user_input,
+            )
+
+        # 5) OK → normalisierte Payload (TT.MM.JJJJ mit führenden Nullen)
+        payload = f"{day:02d}.{month:02d}.{year:04d}"
+        return True, "", payload
+
     def valid_activity(self, x: str, llm_service=None) -> tuple:
         """
         Prüft, ob Tätigkeitsbeschreibung hinreichend präzise und zulässig ist.
@@ -257,48 +267,7 @@ class GewerbeanmeldungValidators(BaseValidators):
 
         # extrahiere validity nach validity, reason nach reason und payload bleibt leer
         return validity, reason, ''
-
-
     
-    def valid_nationality(self,x):
-
-        check_prompt = (
-            "Aufgabe:\n"
-            "Klassifiziere ob es sich bei {x} um eine VALIDE Stattsangehörikeit handelt.\n"
-            "VALIDE ist Sie, wenn das Land tatsächlich existiert und korrekt geschrieben wurde. Anderenfalls ist Sie INVALID \n"
-            "Antwort ausschließlich mit: VALID (korrekt geschrieben, tatsächliches Land) oder INVALID (falsch geschrieben, ausgedachtes Land).\n\n"
-            f"Beschreibung: {x}\nAntwort:"
-        )
-        if llm_service is None:
-            llm_service = LLMValidatorService()
-
-        response = llm_service.validate_openai(
-            prompt=check_prompt,
-            model = "gpt-4.1-mini",
-            client = self.client)
-        if not response:
-            return False
-        first_word = response.split()[0].upper()
-        return first_word == "VALID"
-    
-    def valid_registered_name(self,x):
-        return self.valid_name(x)
-    
-    def valid_commercial_register_number(self,x):
-        return self.valid_not_empty(x)
-    
-    # def valid_company_name(self,x):
-    #     return self.valid_name(x)
-    
-    def valid_family_name(self,x):
-        return self.valid_name(x)
-    
-    def valid_given_name(self,x):
-        return self.valid_name(x)
-    
-    def valid_address(self,x):
-        return self.valid_full_adress(x)
-
     def valid_representative_address(self, x, llm_service = None) -> bool:
         system_prompt = (
             "Aufgabe: Extrahiere aus der Nutzereingabe den Straßennamen, die Hausnummer, die Postleitzahl und den Stadtnamen. "
@@ -374,58 +343,229 @@ class GewerbeanmeldungValidators(BaseValidators):
             adress = None
 
         return validity, reason, adress
-    
-    def valid_address(self, x, llm_service = None):
-        return self.valid_representative_address(x, llm_service)
-    
+
+    def valid_rep_phone(self,x):
+        if x == "":
+            return True, "Telefonummer wird übersprungen", ""
+        else:
+            validity, reason, payload = self.valid_phone(x)
+            return validity, reason, payload
+        
+    def valid_rep_email(self,x):
+        if x == "":
+            return True, "E-Mail wird übersprungen", ""
+        else:
+            validity, reason, payload = self.valid_email(x)
+            return validity, reason, payload
+        
     def valid_main_branch_address(self, x, llm_service = None):
         return self.valid_representative_address(x, llm_service)
+    
+    def valid_main_branch_phone(self,x):
+        if x == "":
+            return True, "Telefonummer wird übersprungen", ""
+        else:
+            validity, reason, payload = self.valid_phone(x)
+            return validity, reason, payload
+        
+    def valid_main_branch_email(self,x):
+        if x == "":
+            return True, "E-Mail wird übersprungen", ""
+        else:
+            validity, reason, payload = self.valid_email(x)
+            return validity, reason, payload
 
-    def valid_start_date(self, x: str, llm_service=None) -> tuple:
+    def valid_num_representatives(self, x: str):
         """
-        Prüft ein Datum im Format TT.MM.JJJJ.
-        Regeln:
-          - Format muss exakt TT.MM.JJJJ sein (mit führenden Nullen).
-          - Datum darf maximal 1 Monat (= 31 Tage) in der Vergangenheit liegen.
-          - Zukünftige Daten sind erlaubt.
-        Rückgabe: (valid: bool, reason: str, payload: str)
+        Prüft, ob eine Nutzereingabe nicht leer ist und >= 1 liegt.
+        Bonus: erkennt ausgeschriebene deutsche Zahlen von 1 bis 20,
+        auch wenn sie in einem Satz oder mit anderen Wörtern kombiniert sind.
+        Gibt als payload immer die Zahl (int) zurück.
         """
-        user_input = (x or "").strip()
+        if not x or not x.strip():
+            return False, "Bitte geben Sie eine Zahl ein (mindestens 1).", ""
 
-        # 1) Formatprüfung
-        m = re.fullmatch(r"(\d{2})\.(\d{2})\.(\d{4})", user_input)
-        if not m:
-            return (
-                False,
-                "Bitte geben Sie das Datum im Format TT.MM.JJJJ an (z. B. 05.09.2025).",
-                user_input,
-            )
+        # ausgeschriebene deutsche Zahlen 1–20
+        words_to_nums = {
+            "eins": 1, "eine": 1, "einer": 1, "einem": 1,
+            "zwei": 2, "drei": 3, "vier": 4, "fünf": 5,
+            "sechs": 6, "sieben": 7, "acht": 8, "neun": 9,
+            "zehn": 10, "elf": 11, "zwölf": 12, "dreizehn": 13,
+            "vierzehn": 14, "fünfzehn": 15, "sechzehn": 16,
+            "siebzehn": 17, "achtzehn": 18, "neunzehn": 19,
+            "zwanzig": 20,
+        }
 
-        day, month, year = map(int, m.groups())
+        x_clean = x.strip().lower()
 
-        # 2) Kalenderdatum validieren (z. B. 31.02. ist ungültig)
-        try:
-            date_val = datetime(year, month, day, tzinfo=ZoneInfo("Europe/Berlin")).date()
-        except ValueError:
-            return (
-                False,
-                "Ungültiges Datum (z. B. 31.02. existiert nicht). Bitte prüfen Sie Ihre Eingabe.",
-                user_input,
-            )
+        # 1) Prüfen auf direkte Zahl im Text
+        m = re.search(r"\d+", x_clean)
+        if m:
+            val = int(m.group())
+            if val >= 1:
+                return True, f"Die Anzahl der Vertreter ({val}) wird eingetragen.", str(val)
+            else:
+                return False, "Die Anzahl muss mindestens 1 sein.", ""
 
-        # 3) Stichtag berechnen (heute in Europe/Berlin)
-        today = datetime.now(ZoneInfo("Europe/Berlin")).date()
-        one_month_ago = today - timedelta(days=31)  # robuste, einfache Definition
+        # 2) Prüfen auf ausgeschriebenes Wort
+        for word, val in words_to_nums.items():
+            if re.search(rf"\b{word}\b", x_clean):
+                return True, f"Die Anzahl der Vertreter ({val}) wird eingetragen.", str(val)
 
-        # 4) Regel: maximal 1 Monat in der Vergangenheit erlaubt
-        if date_val < one_month_ago:
-            return (
-                False,
-                "Das Datum liegt mehr als einen Monat in der Vergangenheit. "
-                "Bitte ein Datum wählen, das höchstens 1 Monat zurückliegt.",
-                user_input,
-            )
+        return False, "Bitte geben Sie eine gültige Zahl (als Ziffer oder ausgeschrieben bis 20) ein.", ""
+    
+    def valid_num_partners(self, x: str):
+        return self.valid_num_representatives(x)
 
-        # 5) OK → normalisierte Payload (TT.MM.JJJJ mit führenden Nullen)
-        payload = f"{day:02d}.{month:02d}.{year:04d}"
-        return True, "", payload
+    def valid_employees_full_time(self, x: str):
+        """
+        Prüft die Eingabe für 'employees_full_time':
+        - nicht leer
+        - Zahl >= 0
+        - versteht ausgeschriebene deutsche Zahlen bis 20
+        - payload = int
+        """
+        if not x or not x.strip():
+            return False, "Bitte geben Sie die Zahl Ihrer Vollzeitkräfte an (mindestens 0).", ""
+
+        words_to_nums = {
+            "null": 0,
+            "eins": 1, "eine": 1, "einer": 1, "einem": 1,
+            "zwei": 2, "drei": 3, "vier": 4, "fünf": 5,
+            "sechs": 6, "sieben": 7, "acht": 8, "neun": 9,
+            "zehn": 10, "elf": 11, "zwölf": 12, "dreizehn": 13,
+            "vierzehn": 14, "fünfzehn": 15, "sechzehn": 16,
+            "siebzehn": 17, "achtzehn": 18, "neunzehn": 19,
+            "zwanzig": 20,
+        }
+
+        x_clean = x.strip().lower()
+
+        # 1) Zahl als Ziffer
+        m = re.search(r"\d+", x_clean)
+        if m:
+            val = int(m.group())
+            if val >= 0:
+                return True, f"Die Zahl der Vollzeitkräfte ({val}) wird eingetragen.", val
+            else:
+                return False, "Die Zahl muss mindestens 0 sein.", ""
+
+        # 2) Zahl ausgeschrieben
+        for word, val in words_to_nums.items():
+            if re.search(rf"\b{word}\b", x_clean):
+                return True, f"Die Zahl der Vollzeitkräfte ({val}) wird eingetragen.", val
+
+        return False, "Bitte geben Sie eine gültige Zahl (als Ziffer oder ausgeschrieben bis 20) ein.", ""
+
+    def valid_employees_part_time(self, x: str):
+        return self.valid_employees_full_time(x)
+    
+    def valid_permit_date(self, x: str):
+        return self.valid_date(x)
+    
+    def valid_permit_office(self, x: str):
+        return self.valid_not_empty(x)
+    
+    def valid_handwerkskarte_date(self, x: str):
+        return self.valid_date(x)
+    
+    def valid_handwerkskarte_office(self, x: str):
+        return self.valid_not_empty(x)
+    
+    def valid_family_name(self,x):
+        return self.valid_name(x)
+    
+    def valid_given_name(self,x):
+        return self.valid_name(x)
+    
+    def valid_birth_name(self,x):
+        if x != "":
+            return self.valid_name(x)
+        else:
+            return True, "Das Feld wird übersprungen", ""
+        
+    def valid_birth_date(self,x):
+        return self.valid_date(x)
+    
+    def valid_birth_place(self, x: str):
+        """
+        Prüft die Eingabe für 'birth_place_city':
+        - darf nicht leer sein
+        - sollte ein Komma enthalten (Format: Ort, Land)
+        """
+        if not x or not x.strip():
+            return False, "Bitte geben Sie Ihren Geburtsort und das Land an (z. B. 'Berlin, Deutschland').", ""
+
+        if "," not in x:
+            return False, "Bitte geben Sie Ihren Geburtsort im Format 'Ort, Land' an.", ""
+
+        return True, f"Geburtsort '{x.strip()}' wird eingetragen.", x.strip()
+    
+    def valid_other_nationality(self, x: str, llm_service=None):
+        """
+        Prüft, ob 'x' eine valide Staatsangehörigkeit / ein existierendes Land in korrekter Schreibweise ist.
+        Nutzt LLM im JSON-Mode. Ergebnis-Felder:
+        - validity: "VALID" | "INVALID"
+        - invalid_reason: kurzer Grund (leer, wenn VALID)
+        - country_name: normierter Ländername, falls VALID (sonst leer)
+        - suggested_country: korrigierter Ländername bei leichten Tippfehlern (sonst leer)
+        Rückgabe: (bool_valid, reason, payload_country)
+        """
+        system_prompt = (
+            "Aufgabe:\n"
+            "Klassifiziere, ob es sich bei der Eingabe um eine VALIDE Staatsangehörigkeit handelt.\n"
+            "VALIDE ist sie NUR, wenn das Land tatsächlich existiert UND die Schreibweise größtenteils korrekt ist.\n"
+            "Ist das Land ausgedacht oder nicht zu erkennen, um welches Land es sich handeln soll antworte mit INVALID und lasse 'country_name' leer.\n"
+            "Wenn die Schreibweise NUR LEICHT falsch ist aber klar zu erkennen ist um welches Land es sich handelt, gib VALID zurück, gib im Feld 'country_name' den normierten offiziellen Ländernamen an.\n"
+            "**Halte dich strikt an das JSON-Schema. Keine Erklärtexte außerhalb der Felder. Das ist von höchster Wichtigkeit.**\n"
+        )
+
+        nationality_schema = {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "validity": {
+                    "type": "string",
+                    "enum": ["VALID", "INVALID"],
+                    "description": "VALID nur bei existierendem Land mit korrekter Schreibweise, sonst INVALID."
+                },
+                "country_name": {
+                    "type": "string",
+                    "description": "Normierter offizieller Ländername, NUR füllen, wenn VALID; sonst leer."
+                }
+            },
+            "required": ["validity", "country_name"]
+        }
+
+        if llm_service is None:
+            llm_service = LLMValidatorService()
+
+        response = llm_service.validate_openai_json_mode(
+            system_prompt=system_prompt,
+            user_input=f"Beschreibung: {x}\nAntwort:",
+            json_schema=nationality_schema,
+            model="gpt-4.1-mini",
+            client=self.client
+        )
+
+        # Hilfsfunktion, die dein Service vermutlich bereitstellt; andernfalls: json.loads(response)
+        resp = response_to_dict(response)
+
+        validity_str = resp.get("validity", "INVALID")
+        is_valid = (validity_str == "VALID")
+        if is_valid:
+            return True, f"Die Staatsangehörigkeit '{resp.get('country_name','')}' wird eingetragen.", resp.get("country_name", x).strip()
+        else:
+            return False, f"Leider ist '{x}' keine gültige Staatsangehörigkeit.", ""
+
+    def valid_residence_permit_date(self, x: str):
+        return self.valid_date(x)
+    
+    def valid_residence_permit_office(self, x: str):
+        return self.valid_not_empty(x)
+    
+    def valid_residence_permit_restriction_details(self, x: str):
+        return self.valid_not_empty(x, min_length = 10)
+    
+    def valid_address(self,x):
+        return self.valid_representative_address(x)
