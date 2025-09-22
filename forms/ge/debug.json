@@ -5,7 +5,7 @@
       "slot_type": "choice",
       "description": "Im Handels-, Genossenschafts- oder Vereinsregister, ggf. im Stiftungsverzeichnis eingetragene Rechtsform",
       "filed_name": "txtEintragungsnameS1",
-      "prompt": "Welche Rechtsform möchten Sie für Ihr Unternehmen wählen?",
+      "prompt": "Welche **Rechtsform** möchten Sie für Ihr Unternehmen wählen?",
       "choices": [
         "Einzelunternehmen (Standard, auch für Kleingewerbe)",
         "GdR",
@@ -14,7 +14,7 @@
         "GmbH & Co. KG"
       ],
       "hints":{
-        "Einzelunternehmen (Standard, auch für Kleingewerbe)": "Bitte denken Sie daran, bei einem Einzelunternehmen ist es erforderlich, den vollständigen Vor- und Nachnamen des Inhabers anzugeben. Zum Beispiel:\n 1) Harzerkäsefabrik Mathias Öttl \n 2) Lukas Mürders Betonmanufaktur.",
+        "Einzelunternehmen (Standard, auch für Kleingewerbe)": "Bitte denken Sie daran, bei einem Einzelunternehmen ist es erforderlich, den vollständigen Vor- und Nachnamen des Inhabers anzugeben. Zum Beispiel:\n 1) Harzerkäsefabrik Mathias Öttl \n 2) Lukas Mürdters Betonmanufaktur.",
         "GdR":"Bei einer GbR muss jeder Gesellschafter seperat eine Gewerbeanmeldung vornehmen. Bitte informiere die anderen Gesellschafter: hier eine E-Mail senden (Feature Request)"
       },
       "additional_information": [
@@ -99,7 +99,9 @@
       "slot_type": "text",
       "description": "Anschrift der Betriebsstätte (Straße, Hausnummer, PLZ, Ort)",
       "filed_name": "txtBetriebS1",
-      "prompt": "Wie lautet die Adresse der Betriebsstätte, für welche Sie die Gewerbeanmeldung vornhemen möchten (Straße, Hausnummer, Postleitzahl, Ort)?"
+      "prompt": "Wie lautet die Adresse der Betriebsstätte, für welche Sie die Gewerbeanmeldung vornhemen möchten (Straße, Hausnummer, Postleitzahl, Ort)?",
+      "additional_information": ["## Zusätzliche Informationen\n\n<details>Betriebsstätte ist der Ort, an dem ein Gewerbe dauerhaft ausgeübt wird – zum Beispiel die Hauptniederlassung, eine Zweigniederlassung oder eine unselbstständige Zweigstelle.</details>"
+      ]
     },
 
     {
@@ -189,18 +191,22 @@
       "prompt": "Bitte geben Sie die Zahl der gesetzlichen Vertreter an (Geschäftsführer).",
       "condition": {
         "slot_name": "registered_type",
-        "slot_value": ["UG (haftungsbeschränkt)","GmbH"]}
+        "slot_value": ["UG (haftungsbeschränkt)","GmbH"]},
+      "additional_information": ["## Zusätzliche Informationen\n\n <details>Ein Geschäftsführer ist die Person, die eine GmbH oder UG nach außen rechtlich vertritt und die Geschäfte der Gesellschaft führt.</details>"
+      ]
     },
 
     {
       "slot_name": "num_partners",
       "slot_type": "text",
-      "description": "Zahl der geschäftsführenden Gesellschafter (nur bei Personengesellschaften)",
+      "description": "Zahl der geschäftsführenden Gesellschafter",
       "filed_name": "txtGesellschafterS1",
-      "prompt": "Bitte geben Sie die Zahl der geschäftsführenden Gesellschafter an (nur bei Personengesellschaften).",
+      "prompt": "Bitte geben Sie die Zahl der geschäftsführenden Gesellschafter an.",
       "condition": {
         "slot_name": "registered_type",
-        "slot_value": ["GdR", "GmbH & Co. KG"]}
+        "slot_value": ["GdR", "GmbH & Co. KG"]},
+      "additional_information": ["## Zusätzliche Informationen\n\n <details>Ein geschäftsführender Gesellschafter ist ein Mitgesellschafter, der zugleich aktiv die Geschäftsführung und Vertretung der Gesellschaft übernimmt.</details>"
+      ]
     },
 
     {
@@ -290,9 +296,11 @@
         "chkErlaubnis1S2",
         "chkErlaubnis2S2"
       ],
-      "prompt": "Für einige Berufe ist eine Erlaubnis erforderlich. Falls das bei Ihnen der Fall ist, liegt diese Erlaubnis vor?",
+      "prompt": "Für einige Berufe ist eine Erlaubnis erforderlich. Falls das bei Ihnen der Fall ist, liegt diese Erlaubnis vor? Falls ja können Sie ein Foto der Erlaubnis hochladen.",
       "additional_information": ["## Zusätzliche Informationen\n\n <details>Eine Übersicht von Berufen, für deren Ausübung eine Erlaubnis erforderlich ist finden sie <a href=\"https://www.ihk.de/konstanz/recht-und-steuern/gewerberecht/einzelne-berufe/erlaubnispflichtigegewerbe13180-1672696 \" target=\"_blank\">hier</a>.</details>"
-      ]
+      ],
+      "show_upload": true,
+      "upload_label": "Erlaubnis hochladen"
     },
  
     {
@@ -331,14 +339,16 @@
         "chkAnlageA1S2",
         "chkAnlageA2S2"
       ],
-      "prompt": "Liegt eine Handwerkskarte vor?",
+      "prompt": "Liegt eine Handwerkskarte vor?  **Falls ja können hier direkt ein Foto Ihrer Handwerkskarte hochladen.**",
       "additional_information": [
       "## Zusätzliche Informationen\n\n <details><img src=\"/gradio_api/file=images/handwerkskarte.jpg\" alt=\"Handwerkskarte\" style=\"max-width:100%;height:auto;margin-bottom:10px;\"/> Eine Handwerkskarte erhalten Sie üblicherweise von der für Sie zuständigen Handwerkskammer. Weitere Informationen finden Sie <a href=\"https://www.hwk-stuttgart.de/artikel/handwerksrolle-anlage-a-anlage-b-und-viele-weitere-infos-67,0,2162.html\" target=\"_blank\">hier</a>.</details>"
       ],
       "condition": {
         "slot_name": "business_type",
         "slot_value": "Handwerk"
-      }
+      },
+      "show_upload": true,
+      "upload_label": "Handwerkskarte hochladen."
     },
 
     {
@@ -419,9 +429,9 @@
     {
       "slot_name": "birth_place",
       "slot_type": "text",
-      "description": "Geburtsort und -land",
+      "description": "Geburtsort und -land (Ort, Land)",
       "filed_name": "txtGeburtsortS1",
-      "prompt": "Bitte geben Sie Ihren Geburtsort und -land an."
+      "prompt": "Bitte geben Sie Ihren Geburtsort und -land (Ort, Land) an."
     },
     
     {
@@ -464,10 +474,12 @@
         "chkAufenthalt1S2",
         "chkAufenthalt2S2"
       ],
-      "prompt": "Liegt ein Aufenthaltstitel vor?",
+      "prompt": "Liegt ein Aufenthaltstitel vor? **Falls ja können Sie ein Foto Ihres Aufenthaltstitels hochladen.**",
       "additional_information": [
       "## Zusätzliche Informationen\n\n <details>In Deutschland benötigen alle Drittstaatsangehörigen (also Personen, die weder deutsche Staatsangehörige noch Bürger eines EU-/EWR-Staates oder der Schweiz sind) für ihren Aufenthalt einen Aufenthaltstitel. Weitere Informationen finden Sie <a href=\"https://www.bmi.bund.de/DE/themen/migration/aufenthaltsrecht/einreise-und-aufenthalt/einreise-und-aufenthalt-node.html\" target=\"_blank\">hier</a> </details>"
-      ]
+      ],
+      "show_upload": true,
+      "upload_label": "Aufenthaltstitel hochladen"
     },
 
     {
