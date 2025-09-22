@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any, Tuple, List
 import json
 from openai import OpenAI
 import json, re
-from .translator import translate_from_de
+from .translator import translate_from_de, instruction_msgs
 
 def code_to_label(code: str) -> str:
     return {"de":"Deutsch","en":"English","fr":"Français","tr":"Türkçe"}.get(code, code)
@@ -87,7 +87,30 @@ class LanguageWizard:
 
         return lang_code, lang_label, confirm_prompt, response_id
 
-    def _llm_check_approval(self, user_text: str) -> Optional[bool]:
+    # def _llm_check_approval(self, user_text: str) -> Optional[bool]:
+    #     """LLM-Backup für Ja/Nein-Klassifikation in beliebiger Sprache."""
+    #     schema = {
+    #         "type":"object",
+    #         "additionalProperties": False,
+    #         "properties":{
+    #             "approved":{"type":"boolean"},
+    #             "confirmation_prompt":{"type":"string"}},
+    #         "required":["approved","confirmation_prompt"]
+    #     }
+    #     resp = self.client.responses.create(
+    #         model=self.model,
+    #         input=[
+    #             {"role":"system","content":"Classify if the user message is a YES/approval or NO/rejection. If approval, formulate a short message with a warning like '\nPlease note: Your input will be translated to German for form filling. Please check the final form carefully before submission. (confirmation_prompt)."},
+    #             {"role":"user","content":user_text}
+    #         ],
+    #         store=True,
+    #         text={"format":{"type":"json_schema","name":"yn","schema":schema,"strict":True}},
+    #         previous_response_id=self.state.previous_response_id
+    #     )
+    #     out = json.loads(resp.output_text)
+    #     return bool(out.get("approved")), out.get("confirmation_prompt")
+
+    def _llm_check_approval(self, user_text: str, last_assistant_msg: Optional[str] = None) -> Optional[bool]:
         """LLM-Backup für Ja/Nein-Klassifikation in beliebiger Sprache."""
         schema = {
             "type":"object",
@@ -97,12 +120,22 @@ class LanguageWizard:
                 "confirmation_prompt":{"type":"string"}},
             "required":["approved","confirmation_prompt"]
         }
+
+        messages = [
+            {"role":"system","content":"Classify if the user message is a YES/approval or NO/rejection. "
+                                    "If approval, formulate a short message with a warning like '\nPlease note: "
+                                    "Your input will be translated to German for form filling. "
+                                    "Please check the final form carefully before submission. (confirmation_prompt)."}
+        ]
+
+        if last_assistant_msg:
+            messages.append({"role": "assistant", "content": last_assistant_msg})
+
+        messages.append({"role": "user", "content": user_text})
+
         resp = self.client.responses.create(
             model=self.model,
-            input=[
-                {"role":"system","content":"Classify if the user message is a YES/approval or NO/rejection. If approval, formulate a short message with a warning like '\nPlease note: Your input will be translated to German for form filling. Please check the final form carefully before submission. (confirmation_prompt)."},
-                {"role":"user","content":user_text}
-            ],
+            input=messages,
             store=True,
             text={"format":{"type":"json_schema","name":"yn","schema":schema,"strict":True}},
             previous_response_id=self.state.previous_response_id
@@ -246,11 +279,12 @@ class LanguageWizard:
             if fast_yn is True:
                 s.awaiting_confirmation = False
                 done_msg = {
-                    "de": "Alles klar – wir sprechen Deutsch. ✅",
-                    "en": "Great — we'll continue in English. ✅\nPlease note: Your input will be translated to German for form filling. Please check the final form carefully before submission.",
-                    "fr": "Parfait — nous continuons en français. ✅\nVeuillez noter : vos saisies seront traduites en allemand pour le remplissage du formulaire. Veuillez vérifier attentivement le formulaire final avant de le soumettre.",
-                    "tr": "Harika — Türkçe devam edelim. ✅\nLütfen dikkat: Girdiniz form doldurma için Almancaya çevrilecektir. Lütfen formu göndermeden önce dikkatlice kontrol edin.",
+                    "de": "Alles klar – wir sprechen Deutsch. ✅\n",
+                    "en": "Great — we'll continue in English. ✅\n**Please note: Your input will be translated to German for form filling. Please check the final form carefully before submission.**",
+                    "fr": "Parfait — nous continuons en français. ✅\n**Veuillez noter : vos saisies seront traduites en allemand pour le remplissage du formulaire. Veuillez vérifier attentivement le formulaire final avant de le soumettre.**",
+                    "tr": "Harika — Türkçe devam edelim. ✅\n**Lütfen dikkat: Girdiniz form doldurma için Almancaya çevrilecektir. Lütfen formu göndermeden önce dikkatlice kontrol edin.**",
                 }.get(s.lang_code, "Okay — language set. ✅")
+        
                 s.history.append(("assistant", done_msg))
                 return done_msg, True, s.lang_code
 
@@ -262,7 +296,10 @@ class LanguageWizard:
                 return msg, False, s.lang_code
 
             # 🔹 FALLBACK: LLM
-            approved, done_msg = self._llm_check_approval(user_text)
+            # approved, done_msg = self._llm_check_approval(user_text)
+            last_assistant_msg = next((msg for role, msg in reversed(s.history) if role == "assistant"), None)
+
+            approved, done_msg = self._llm_check_approval(user_text, last_assistant_msg)
             if approved is True:
                 s.awaiting_confirmation = False
                 s.history.append(("assistant", done_msg))

@@ -8,7 +8,7 @@ from openai import OpenAI
 from gradio import ChatMessage
 from .pdf_backend import GenericPdfFiller
 from .wizards import LanguageWizard, LanguageWizardState, FormSelectionWizard, FormSelectionWizardState, ActivityWizard, ActivityWizardState 
-from .translator import translate_from_de, translate_to_de, EDIT_CMDS
+from .translator import translate_from_de, translate_to_de, EDIT_CMDS, instruction_msgs
 
 # form_path = "../forms/ge"   # Passe ggf. den Pfad an
 # Basisverzeichnis bestimmen
@@ -132,6 +132,10 @@ def chatbot_fn(
             # Nebenwirkungen übertragen
             if state["active_wizard"] == "language_wizard":
                 state["lang"] = state["wizard_state"].get("lang_code")
+
+                # instruction message
+                instruction_msg = instruction_msgs.get(state["lang"], instruction_msgs["de"])
+                history = utter_message_with_translation(history, instruction_msg, state.get('lang'))
             elif state["active_wizard"] == "form_selection_wizard":
                 selected = state["wizard_state"].get("selected_form_key")
                 if selected:
