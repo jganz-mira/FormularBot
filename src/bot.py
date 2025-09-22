@@ -2,13 +2,13 @@
 from typing import Optional, Tuple, List, Dict, Any
 import os
 from .validators import BaseValidators, GewerbeanmeldungValidators
-from .bot_helper import load_forms, next_slot_index, print_summary, map_yes_no_to_bool, save_responses_to_json, utter_message_with_translation, compose_prompt_for_slot
+from .bot_helper import load_forms, next_slot_index, print_summary, map_yes_no_to_bool, save_responses_to_json, utter_message_with_translation, compose_prompt_for_slot, valid_choice_slot, fuzzy_choice_match
 from .llm_validator_service import LLMValidatorService
 from openai import OpenAI
 from gradio import ChatMessage
 from .pdf_backend import GenericPdfFiller
 from .wizards import LanguageWizard, LanguageWizardState, FormSelectionWizard, FormSelectionWizardState, ActivityWizard, ActivityWizardState 
-from .translator import translate_from_de, translate_to_de
+from .translator import translate_from_de, translate_to_de, EDIT_CMDS
 
 # form_path = "../forms/ge"   # Passe ggf. den Pfad an
 # Basisverzeichnis bestimmen
@@ -34,7 +34,7 @@ FORMS = load_forms(
     validator_map = validator_map
 )
 
-EDIT_CMDS = {"ändern", "korrigieren", "korrektur", "update"} # diese kommen später an einen anderen Ort
+# EDIT_CMDS = {"ändern", "korrigieren", "korrektur", "update"} # diese kommen später an einen anderen Ort
 
 
 def build_wizard_from_state(name: str, data: dict):
@@ -45,41 +45,6 @@ def build_wizard_from_state(name: str, data: dict):
     # if name == "activity_wizard":  # NEU
     #     return ActivityWizard(ActivityWizardState(**(data or {})))
     return None
-
-# Assume FORMS is a dict loaded at startup mapping form keys to their JSON configs,
-# e.g.:
-# from src.form_loader import FORMS
-
-def valid_choice_slot(message: str, slot_def: Dict[str, Any]) -> bool:
-    """
-    Validate a 'choice' slot by checking if the user's input corresponds
-    to one of the defined choices.
-
-    - If the input is a digit, interpret it as a 1-based index into 'choices'.
-    - Otherwise, compare (case-insensitive) to each choice string.
-
-    Args:
-        message: The raw user input.
-        slot_def: The slot definition dict, must contain a "choices": List[str].
-
-    Returns:
-        True if the input maps to one of the choices, False otherwise.
-    """
-    choices: List[str] = slot_def.get("choices", [])
-    text = message.strip()
-
-    # 1) Digit input as index?
-    if text.rstrip(".").isdigit():
-        idx = int(text.rstrip(".")) - 1
-        if 0 <= idx < len(choices):
-            return True
-
-    # 2) Exact text match (case-insensitive)
-    for opt in choices:
-        if text.lower() == opt.lower():
-            return True
-
-    return False
 
 def chatbot_fn(
     message: Optional[str],
@@ -207,6 +172,12 @@ def chatbot_fn(
         slots = FORMS[state["form_type"]]["slots"]
         first_slot = slots[0]
 
+        state["show_upload"] = bool(first_slot.get("show_upload", False))
+        state["upload_label"] = first_slot.get("upload_label", "Dateien hochladen")
+        # translate label if nessecary
+        if state.get('lang') and state.get('lang') != 'de':
+            state["upload_label"] = translate_from_de(state["upload_label"], state.get('lang'))
+
         # # Prompt bauen (ggf. später lokalisieren)
         # prompt = first_slot.get("prompt", first_slot.get("description", ""))
 
@@ -222,7 +193,7 @@ def chatbot_fn(
 
     # --- Classify Edit intent via LLM classification ---
     msg_low = (message or "").lower()
-    if state.get("form_type") and message and any(cmd in msg_low for cmd in EDIT_CMDS):
+    if state.get("form_type") and message and any(cmd in msg_low for cmd in EDIT_CMDS[state.get("lang")]):
         # Slot-Beschreibungen sammeln
         slots_def = FORMS[state["form_type"]]["slots"]
         descriptions = "\n".join(
@@ -279,7 +250,11 @@ def chatbot_fn(
         hints = slot_def.get("hints",None)
         # CHOICE slot handling
         if slot_type== "choice":
-            if not valid_choice_slot(message, slot_def):
+            # only translate the message if it is not a digit (index)
+            if state.get('lang') and state.get('lang') != 'de' and not message.strip().rstrip(".").isdigit():
+                message = translate_to_de(message, state.get('lang'))
+            selected_choice, matched = valid_choice_slot(message, slot_def, cutoff=0.75)
+            if not matched:
                 # re-prompt with options if invalid
                 opts = slot_def["choices"]
                 opt_text = "\n".join(f"{i+1}. {o}" for i, o in enumerate(opts))
@@ -294,10 +269,12 @@ def chatbot_fn(
                 selection = slot_def["choices"][int(number)-1]
             else:
             # interpret user input as text
-                for o in slot_def["choices"]:
-                    if message.strip().lower() == o.lower():
-                        selection = o
-                        break
+                # for o in slot_def["choices"]:
+                #     if message.strip().lower() == o.lower():
+                #         selection = o
+                #         break
+                selection = selected_choice
+            
 
             # If yes/no filed, map to true/false to make it more independent against language
             choices = slot_def["choices"]
@@ -364,6 +341,14 @@ def chatbot_fn(
     next_idx, state = next_slot_index(slots_def, state)
     if next_idx is not None:
         next_slot_def   = slots_def[next_idx]
+
+        state["show_upload"] = bool(next_slot_def.get("show_upload", False))
+        state["upload_label"] = next_slot_def.get("upload_label", "Dateien hochladen")
+        state["uploaded_files"] = None
+        # translate label if nessecary
+        if state.get('lang') and state.get('lang') != 'de':
+            state["upload_label"] = translate_from_de(state["upload_label"], state.get('lang'))
+
         next_slot_name = next_slot_def["slot_name"]
         prompt = next_slot_def.get('prompt', next_slot_def.get('description', ''))
         # if next_slot_def["slot_type"] == "choice":
@@ -373,8 +358,21 @@ def chatbot_fn(
         prompt = compose_prompt_for_slot(next_slot_def)
         history = utter_message_with_translation(history,prompt,state.get('lang'))
     else:
-        history = utter_message_with_translation(history, "Vielen Dank! Das Formular ist abgeschlossen.", state.get('lang'))
-        print_summary(state = state, forms = FORMS)
-        state['completed'] = True
+        history = utter_message_with_translation(
+            history,
+            "Vielen Dank! Das Formular ist abgeschlossen. Nachdem Sie das Formular unterschrieben haben, können Sie es hier zur elektronischen Übermittlung direkt hochladen",
+            state.get('lang')
+        )
+        print_summary(state=state, forms=FORMS)
+        state['completed'] = True                      # Download-Button jetzt sichtbar
+        state['awaiting_final_upload'] = True          # <<< NEU: Nächster Upload ist der finale
+        state['show_upload'] = True                    # Upload-Button einblenden
+        state['upload_label'] = (
+            'Unterschriebenes Formular hochladen und Vorgang abschließen.'
+            if state.get('lang', 'de') == 'de' else
+            translate_from_de('Unterschriebenes Formular hochladen und Vorgang abschließen.', state.get('lang'))
+        )
+        state["uploaded_files"] = None                 # Anzeige leeren
     return history, state, ""
+
 

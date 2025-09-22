@@ -1,8 +1,15 @@
-from typing import Optional, Tuple, List, Dict, Any
+from typing import Optional, Tuple, List, Dict, Any, Literal
 import os
 import json
 from .translator import translate_from_de
 from gradio import ChatMessage
+from difflib import SequenceMatcher
+import difflib
+import unicodedata
+import re
+from pydantic import BaseModel
+from .llm_validator_service import LLMValidatorService
+from openai import OpenAI
 
 def load_forms(form_path:str, validator_map:Dict[str,callable]):
     forms = {}
@@ -206,3 +213,147 @@ def compose_prompt_for_slot(slot_def: Dict[str, Any]) -> str:
         prompt += extra
 
     return prompt
+
+
+_UMLAUT_MAP = str.maketrans({
+    "ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss",
+    "Ä": "Ae", "Ö": "Oe", "Ü": "Ue",
+})
+
+def _strip_accents(s: str) -> str:
+    # Entfernt Diakritika (z. B. französische Akzente)
+    nfkd = unicodedata.normalize("NFKD", s)
+    return "".join(ch for ch in nfkd if not unicodedata.combining(ch))
+
+def _normalize(s: str) -> str:
+    s = s.strip().translate(_UMLAUT_MAP)
+    s = _strip_accents(s)
+    s = s.lower()
+    # Nur Buchstaben/Ziffern/Leerzeichen behalten
+    s = re.sub(r"[^a-z0-9\s]", " ", s)
+    # Mehrfachspaces vereinheitlichen
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+def _similar(a: str, b: str) -> float:
+    return SequenceMatcher(None, a, b).ratio()  # 0..1
+
+# --- Fuzzy Choice Matching ---
+
+def _best_choice_match(user_text: str, choices: List[str]) -> Tuple[Optional[str], float]:
+    """
+    Liefert (beste_choice, score). Score 1.0 = perfekt, 0.0 = kein Match.
+    Heuristik:
+      1) exakter Normalized-Match
+      2) Token-Subset/Substring-Match
+      3) Fuzzy-Score (difflib)
+    """
+    ut = _normalize(user_text)
+    if not ut:
+        return None, 0.0
+    ut_tokens = set(ut.split())
+
+    best: Tuple[Optional[str], float] = (None, 0.0)
+
+    for choice in choices:
+        ct = _normalize(choice)
+        if not ct:
+            continue
+        # 1) Exakt?
+        if ut == ct:
+            return choice, 1.0
+
+        # 2) Token-Subset / Substring
+        ct_tokens = set(ct.split())
+        # Nutzer gibt z.B. "uebernahme" und Choice ist "uebernahme erbfolge kauf pacht"
+        if ut in ct or ut_tokens.issubset(ct_tokens):
+            score = 0.92  # hoch, aber nicht perfekt
+            if score > best[1]:
+                best = (choice, score)
+
+        # 3) Fuzzy-Ähnlichkeit (Tippfehler)
+        # Vergleiche sowohl Gesamtausdruck als auch gegen das längste Wort in der Choice
+        sim_full = _similar(ut, ct)
+        sim_word = max((_similar(ut, w) for w in ct_tokens), default=0.0)
+        score = max(sim_full, sim_word)
+        if score > best[1]:
+            best = (choice, score)
+
+    return best
+
+# --- Öffentliche API ---
+
+def valid_choice_slot(message: str, slot_def: Dict[str, Any], cutoff: float = 0.85) -> bool:
+    """
+    Wie deine Originalfunktion, aber mit fuzzy Matching.
+    - Ziffern-Index (1-basiert) bleibt erhalten.
+    - Textvergleich nutzt Normalisierung, Token-Containment und difflib-Score.
+    """
+    choices: List[str] = slot_def.get("choices", [])
+    text = message.strip()
+
+    # 1) Digit input als Index?
+    if text.rstrip(".").isdigit():
+        idx = int(text.rstrip(".")) - 1
+        if 0 <= idx < len(choices):
+            print(f"Index match: '{text}' -> '{choices[idx]}'")
+            return message , True
+
+    # 2) Fuzzy-Text-Match
+    match, score = _best_choice_match(text, choices)
+    if score < cutoff:
+        print(f"Fuzzy match failed: '{text}' -> '{match}' (score {score:.2f})")
+        # llm fallback
+        match, score = llm_based_match(message, choices)
+        print(f"LLM match: '{text}' -> '{match}' (score {score:.2f})")
+        return match, score >= 0.5
+    
+    return match, score >= cutoff
+
+def fuzzy_choice_match(message: str, choices: List[str], cutoff: float = 0.85) -> Optional[str]:
+    """
+    Findet den am besten passenden Choice-Eintrag mit fuzzy matching.
+    - cutoff: Score-Schwelle zwischen 0 und 1 (Standard 0.85)
+    - Gibt den gematchten Choice zurück oder None
+    """
+    text = message.strip()
+    match, score = _best_choice_match(text, choices)
+    print(f"Fuzzy match: '{text}' -> '{match}' (score {score:.2f})")
+    if score >= cutoff:
+        return match
+    else: # llm fallback
+        match, llm_score = llm_based_match(message, choices)
+        print(f"LLM match: '{text}' -> '{match}' (score {llm_score:.2f})")
+        if llm_score >= 0.5:
+            return match
+
+class ActivityCheckResponse(BaseModel):
+    match: int
+    score: float
+
+def llm_based_match(message:str, choices: List[str]) -> Dict:
+    '''performs choice matching based on an llm call'''
+
+    choice_text = "\n".join(f"{i+1}. {o}" for i, o in enumerate(choices))
+
+    system_prompt = (
+        "Du bist ein präziser Intent und Choice-Klassifikator.\n"
+        f"Das ist die Liste der möglichen Optionen:{choice_text}.\n"
+        "Erkenne anhand der Nutzereingabe, welche Option der Nuter gemeint hat.\n"
+        "Gib die passende option exakt zurück (match) und einen Score (score) zwischen 0.0 und 1.0, wobei alles unter 0.5 kein match ist, ab 0.5 eher sicher, ab 0.75 ziemlich sicher und 1.0 absolut sicher ist.\n"
+        "**Halte dich exakt an die vorgegebenen Optionen und erfinde keine neuen**.\n"
+    )
+
+    llm_service = LLMValidatorService()
+    response = llm_service.validate_openai_structured_output(
+        system_prompt=system_prompt,
+        user_input=message,
+        json_schema=ActivityCheckResponse,
+        model = 'gpt-4o-mini',
+        client = OpenAI()
+    )
+
+    score = response.output_parsed.score
+    match = response.output_parsed.match
+    return match, score
+
