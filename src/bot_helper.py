@@ -283,6 +283,12 @@ def _best_choice_match(user_text: str, choices: List[str]) -> Tuple[Optional[str
 
 # --- Öffentliche API ---
 
+def ensure_string(value) -> str:
+    if not isinstance(value, str):
+        return str(value)
+    return value
+
+
 def valid_choice_slot(message: str, slot_def: Dict[str, Any], cutoff: float = 0.85) -> bool:
     """
     Wie deine Originalfunktion, aber mit fuzzy Matching.
@@ -339,7 +345,7 @@ def llm_based_match(message:str, choices: List[str]) -> Dict:
     system_prompt = (
         "Du bist ein präziser Intent und Choice-Klassifikator.\n"
         f"Das ist die Liste der möglichen Optionen:{choice_text}.\n"
-        "Erkenne anhand der Nutzereingabe, welche Option der Nuter gemeint hat.\n"
+        "Erkenne anhand der Nutzereingabe, welche Option der Nutzer gemeint hat.\n"
         "Gib die passende option exakt zurück (match) und einen Score (score) zwischen 0.0 und 1.0, wobei alles unter 0.5 kein match ist, ab 0.5 eher sicher, ab 0.75 ziemlich sicher und 1.0 absolut sicher ist.\n"
         "**Halte dich exakt an die vorgegebenen Optionen und erfinde keine neuen**.\n"
     )
