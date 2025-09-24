@@ -36,3 +36,9 @@ def convert_to_bool(input):
 def load_txt(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
+    
+def is_gp_town(postal_code):
+    if postal_code not in [73033, 73035, 73037, 73116]:
+        return "\n\n**Hinweis:** Es scheint, als wollten Sie ein Gewerbe anmelden, dessen Betriebsstätte nicht im Zuständigkeitsbereich des Gewerbeamts Göppingen liegt. Bitte wenden Sie sich in diesem Fall an das für Sie zuständige Gewerbeamt oder geben Sie die korrekte Adresse ein.\n\n"
+    else:
+        return ""

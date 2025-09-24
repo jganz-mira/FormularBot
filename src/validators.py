@@ -5,7 +5,7 @@ import os
 from typing import List, Dict, Any, Union, Literal, Optional
 
 from .llm_validator_service import LLMValidatorService
-from .validator_helper import response_to_dict, convert_to_bool, load_txt
+from .validator_helper import response_to_dict, convert_to_bool, load_txt, is_gp_town
 from openai import OpenAI
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo  # Python 3.9+
@@ -195,15 +195,23 @@ class GewerbeanmeldungValidators(BaseValidators):
             "Sanitärdienstleistungen – VALID\n"
             "Allgemeine Dienstleistungen – INVALID\n"
             "Großhandel mit Elektrowaren – VALID\n"
-            "Chemische Kastration von Menschen – INVALID\n"
-            "Auftragsmord - INVALID\n"
-            "Import und Export von Menschen - INVALID\n"
-            "Verkauf von Betäubungsmitteln an Privatpersonen - INVALID\n"
-            "Wartung und Betrieb von Kerntechnischen Anlagen - VALID\n"
+            "Import/Export von Menschen – INVALID\n"
+            "Auftragsmord – INVALID\n"
+            "Verkauf von Betäubungsmitteln an Privatpersonen – INVALID\n"
+            "Wartung und Betrieb von kerntechnischen Anlagen – VALID\n"
+            "Import und Export von nicht verschreibungspflichtigen Medikamenten – VALID\n"
             "Online Marketing – INVALID\n\n"
             "Aufgabe:\n"
-            "Prüfe, ob die folgende Tätigkeitsbeschreibung hinreichend präzise und zulässig ist (validity). Menschenverachtende oder Verbotene Tätigkeiten sind nicht zulässig (INVALID).\n"
-            "Antwort mit: VALID (präzise genug & zulässig) oder INVALID (zu allgemein oder unzulässig). Falls INVALID gib eine kurze prägnante Begründung an warum die Tätigkeitsbeschreibung INVALID ist ('Die Beschreibung ist leider ungültig weil/ da diese zu allgemein gefasst/ verboten/ menschverachtend ist.') (reason)\n\n"
+            "Prüfe, ob die folgende Tätigkeitsbeschreibung hinreichend präzise ist (validity).\n"
+            "Eine Tätigkeitsbeschreibung ist INVALID nur wenn sie:\n"
+            "a) zu allgemein ist (z. B. 'Dienstleistungen aller Art'), oder\n"
+            "b) eindeutig menschenverachtend oder offensichtlich kriminell ist "
+            "(z. B. Mord, Menschenhandel, Verkauf illegaler Drogen).\n\n"
+            "Treffe KEINE Annahmen über gesetzliche Vorschriften oder mögliche "
+            "Genehmigungspflichten. Beurteile nur nach Präzision und offensichtlicher "
+            "ethischer Unzulässigkeit.\n\n"
+            "Antwort mit: VALID (präzise genug & zulässig) oder INVALID (zu allgemein oder unzulässig).\n"
+            "Falls INVALID, gib eine kurze Begründung an ('Die Beschreibung ist leider ungültig, weil ...').\n\n"
         )
 
         user_input = f"Beschreibung: {x}"
@@ -222,7 +230,7 @@ class GewerbeanmeldungValidators(BaseValidators):
             return False, "Keine Antwort vom LLM", x
 
         valid = (response.output_parsed.validity == "VALID")
-        reason = "" if valid else response.output_parsed.reason + " Bitte 'Tätigkeits-Art' + 'Objekt' (+ 'Ergänzung') angeben und zu breite Formulierungen vermeiden."
+        reason = "" if valid else response.output_parsed.reason + " Ihre Formulierung sollte Tätigkeitsart, Tätigkeitsobjekt so wie gegebenenfalls Ergänzugen enthalten.Zu breite Formulierungen sollten allerdings vermieden werden."
         payload = x
         # If valid, further check if a permit may be required
         if valid:
@@ -341,6 +349,9 @@ class GewerbeanmeldungValidators(BaseValidators):
             adress = f"{response['street_name']}, {response['street_number']}, {response['postal_code']}, {response['city_name']}"
         else:
             adress = None
+
+        # validate if in Göppingen
+        reason += is_gp_town(response['postal_code'])
 
         return validity, reason, adress
 
