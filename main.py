@@ -102,8 +102,8 @@ def main(**kwargs):
     enable_download = kwargs.get("enable_download", False)
     gr.set_static_paths(paths=[Path.cwd().absolute() / "images"])
 
-    with gr.Blocks() as demo:
-        chatbot = gr.Chatbot(type='messages', render_markdown=True)
+    with gr.Blocks(fill_height=True) as demo:
+        chatbot = gr.Chatbot(type='messages', render_markdown=True,scale=1)
         state = gr.State(value=None)
         txt = gr.Textbox(placeholder="Hier tippen...")
 
