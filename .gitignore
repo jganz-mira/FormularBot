@@ -97,3 +97,5 @@ coverage.xml
 # Secret‐Store (z.B. AWS creds)
 *.key
 *.pem
+
+test_images/

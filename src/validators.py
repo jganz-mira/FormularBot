@@ -344,14 +344,16 @@ class GewerbeanmeldungValidators(BaseValidators):
         
         validity = convert_to_bool(response['validity'])
         reason = response['invalid_reason']
-
-        if validity == 'VALID':
+        print(validity)
+        if validity:
             adress = f"{response['street_name']}, {response['street_number']}, {response['postal_code']}, {response['city_name']}"
         else:
             adress = None
 
-        # validate if in Göppingen
-        reason += is_gp_town(response['postal_code'])
+        # # validate if in Göppingen
+        # reason += is_gp_town(response['postal_code'])
+
+        # print(adress)
 
         return validity, reason, adress
 

@@ -293,8 +293,10 @@ def chatbot_fn(
             if check_box_condition:
                 state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name, "choices": slot_def['choices'], "check_box_condition":check_box_condition}
             # if there is no associated checkbox in the document
-            else:
+            if isinstance(target_filed_name, str):
                 state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name}
+            else:
+                state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name, "choices": slot_def.get("choices")}
 
             # show hints if there are any
             if hints:
