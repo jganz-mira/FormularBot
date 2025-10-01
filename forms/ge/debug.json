@@ -15,7 +15,7 @@
       ],
       "hints":{
         "Einzelunternehmen (Standard, auch für Kleingewerbe)": "Bitte denken Sie daran, bei einem Einzelunternehmen ist es erforderlich, den vollständigen Vor- und Nachnamen des Inhabers anzugeben. Zum Beispiel:\n 1) Harzerkäsefabrik Mathias Öttl \n 2) Lukas Mürdters Betonmanufaktur.",
-        "GdR":"Bei einer GbR muss jeder Gesellschafter seperat eine Gewerbeanmeldung vornehmen. **Bitte informiere die anderen Gesellschafter**"
+        "GdR":"Bei einer GbR muss jeder Gesellschafter seperat eine Gewerbeanmeldung vornehmen. Bitte informiere die anderen Gesellschafter: hier eine E-Mail senden (Feature Request)"
       },
       "additional_information": [
         "## Zusätzliche Informationen\n\n<details>\n<summary><strong>Einzelunternehmen (Standard, auch Kleingewerbe)</strong></summary>\n\n- Eine Person (alleiniger Inhaber)\n- Keine eigene Rechtspersönlichkeit\n- Volle persönliche Haftung mit Privatvermögen\n- Einfach & günstig zu gründen\n- Geeignet für kleinere Betriebe und Selbstständige\n</details>\n\n<details>\n<summary><strong>Gesellschaft bürgerlichen Rechts (GbR)</strong></summary>\n\n- Mindestens 2 Gesellschafter\n- Kein Mindestkapital nötig\n- Keine eigene Rechtspersönlichkeit (aber rechtsfähig)\n- Unbeschränkte, persönliche, gesamtschuldnerische Haftung\n- Sehr einfache Gründung, beliebt bei kleinen Zusammenschlüssen\n</details>\n\n<details>\n<summary><strong>Unternehmergesellschaft (haftungsbeschränkt) – UG</strong></summary>\n\n- Variante der GmbH („Mini-GmbH“)\n- Stammkapital ab 1 €\n- Haftung auf Gesellschaftsvermögen beschränkt\n- Pflicht zur Rücklagenbildung bis 25.000 € (danach Umwandlung in GmbH möglich)\n- Geringe Gründungskosten, teils weniger „seriöses“ Image als GmbH\n</details>\n\n<details>\n<summary><strong>Gesellschaft mit beschränkter Haftung (GmbH)</strong></summary>\n\n- Juristische Person mit eigener Rechtspersönlichkeit\n- Mindeststammkapital 25.000 € (mind. 12.500 € bei Gründung einzuzahlen)\n- Haftung auf Gesellschaftsvermögen beschränkt\n- Angesehen, für kleine bis große Unternehmen geeignet\n- Gründung aufwändiger und teurer als UG/GbR\n</details>\n\n<details>\n<summary><strong>GmbH &amp; Co. KG</strong></summary>\n\n- KG mit einer GmbH als haftendem Komplementär\n- Komplementär (GmbH) haftet beschränkt; Kommanditisten haften in Höhe ihrer Einlage\n- Kombination aus Haftungsbeschränkung (GmbH) und Flexibilität/Steuer-Vorteilen der Personengesellschaft (KG)\n- Beliebt bei Familienunternehmen und Mittelstand\n</details>"
@@ -109,7 +109,7 @@
       "slot_type": "text",
       "description": "Telefon der Betriebsstätte",
       "filed_name": "txtTel2S1",
-      "prompt": "Falls vorhanden, geben Sie bitte eine Telefonnummer an, unter der wir die Betriebsstätte erreichen können. **Optional, zum Überspringen Enter drücken.**"
+      "prompt": "Falls vorhanden, geben Sie bitte eine Telefonnummer an, unter der wir die Betriebsstätte erreichen können."
     },
 
     {
@@ -117,7 +117,7 @@
       "slot_type": "text",
       "description": "E-Mail der Betriebsstätte",
       "filed_name": "txtMail2S1",
-      "prompt": "Falls vorhanden, geben Sie bitte eine E-Mail-Adresse an, unter der wir die Betriebsstätte erreichen können. **Optional, zum Überspringen Enter drücken.**"
+      "prompt": "Falls vorhanden, geben Sie bitte eine E-Mail-Adresse an, unter der wir die Betriebsstätte erreichen können."
     },
 
     {
@@ -144,7 +144,7 @@
         "slot_name": "main_branch_address",
         "slot_value": "not empty"
       },
-      "prompt": "Falls vorhanden, bitte geben Sie die Telefonnummer der Hauptniederlassung an. **Optional, zum Überspringen Enter drücken.**"
+      "prompt": "Falls vorhanden, bitte geben Sie die Telefonnummer der Hauptniederlassung an."
     },
 
     {
@@ -155,7 +155,7 @@
       "condition": {
         "slot_name": "main_branch_address",
         "slot_value": "not empty"},
-      "prompt": "Falls vorhanden, bitte geben Sie die E-Mail-Adresse der Hauptniederlassung an. **Optional, zum Überspringen Enter drücken.**"
+      "prompt": "Falls vorhanden, bitte geben Sie die E-Mail-Adresse der Hauptniederlassung an."
       },
     
     {
@@ -179,7 +179,7 @@
         "chkGrund6S2"
       ],
       "prompt": "Bitte geben Sie den Grund der Neuerrichtung/Übernahme an.",
-      "additional_information": ["## Zusätzliche Informationen\n\n <details><summary><strong>Neugründung</strong></summary>\n\n- Sie melden Ihr Gewerbe erstmals an.\n- Es handelt sich nicht um eine Übernahme oder Änderung einer bestehenden Firma.</details>\n\n<details><summary><strong>Wiedereröffnung nach Verlegung aus einem anderen Meldebezirk</strong></summary>\n\n- Sie haben Ihr Gewerbe aus einem anderen Bezirk hierher verlegt.\n- Die Anmeldung erfolgt am neuen Standort.\n</details>\n\n<details>\n<summary><strong>Übergang nach dem Umwandlungsgesetz</strong></summary>\n\n- Ihr Unternehmen wird auf Basis des Umwandlungsgesetzes in eine andere Rechtsform überführt.\n- Beispiel: Verschmelzung, Spaltung oder Formwechsel.</details>\n\n<details><summary><strong>Wechsel der Rechtsform</strong></summary>\n\n- Sie ändern die Rechtsform Ihres Unternehmens.\n- Beispiel: Von Einzelunternehmen zu GmbH.</details>\n\n<details><summary><strong>Gesellschaftereintritt</strong></summary>\n\n- Ein neuer Gesellschafter tritt in eine bestehende Gesellschaft ein.\n- Dies kann zu Änderungen der Anmeldepflichten führen.</details>\n\n<details><summary><strong>Übernahme (Erbfolge/Kauf/Pacht)</strong></summary>\n\n- Sie übernehmen ein bestehendes Gewerbe.\n- Dies kann durch Kauf, Pacht oder Erbfolge erfolgen.</details>"
+      "additional_information": ["## Zusätzliche Informationen\n\n <details><summary><strong>Neugründung</strong></summary> - Sie melden Ihr Gewerbe erstmals an. - Es handelt sich nicht um eine Übernahme oder Änderung einer bestehenden Firma.</details> <details><summary><strong>Wiedereröffnung nach Verlegung aus einem anderen Meldebezirk</strong></summary> - Sie haben Ihr Gewerbe aus einem anderen Bezirk hierher verlegt. - Die Anmeldung erfolgt am neuen Standort.</details> <details><summary><strong>Übergang nach dem Umwandlungsgesetz</strong></summary> - Ihr Unternehmen wird auf Basis des Umwandlungsgesetzes in eine andere Rechtsform überführt. - Beispiel: Verschmelzung, Spaltung oder Formwechsel.</details> <details><summary><strong>Wechsel der Rechtsform</strong></summary> - Sie ändern die Rechtsform Ihres Unternehmens. - Beispiel: Von Einzelunternehmen zu GmbH.</details> <details><summary><strong>Gesellschaftereintritt</strong></summary> - Ein neuer Gesellschafter tritt in eine bestehende Gesellschaft ein. - Dies kann zu Änderungen der Anmeldepflichten führen.</details> <details><summary><strong>Übernahme (Erbfolge/Kauf/Pacht)</strong></summary> - Sie übernehmen ein bestehendes Gewerbe. - Dies kann durch Kauf, Pacht oder Erbfolge erfolgen.</details>"
       ]
     },
 
@@ -415,7 +415,7 @@
       "slot_type": "text",
       "description": "Geburtsname (nur bei Abweichung vom Familiennamen)",
       "filed_name": "txtGeburtsnamenS1",
-      "prompt": "Bitte geben Sie Ihren Geburtsnamen an (nur bei Abweichung vom Familiennamen, zum **überspringen Enter drücken**)."
+      "prompt": "Bitte geben Sie Ihren Geburtsnamen an (nur bei Abweichung vom Familiennamen, zum überspringen Enter drücken)."
     },
     
     {
@@ -456,7 +456,7 @@
       "filed_name": "txtStaatS1",
       "condition": {
         "slot_name": "nationality",
-        "slot_value": "false"
+        "slot_value": "nein"
       },
       "prompt": "Bitte geben Sie Ihre Staatsangehörigkeit an."
     },

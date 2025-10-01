@@ -50,7 +50,7 @@ class GenericPdfFiller:
 
         # 2. Text flachlegen
         for fn, vals in text_accum.items():
-            non_empty = [v for v in vals if v]
+            non_empty = [str(v) for v in vals if v]
             field_map[fn] = ", ".join(non_empty)
 
         # 3. PDF laden & Felder füllen

@@ -7,15 +7,24 @@ import gradio as gr
 import uuid
 from src.bot_helper import save_responses_to_json
 from src.pdf_backend import GenericPdfFiller
+from pathlib import Path
+from src.translator import translate_from_de, final_msgs, download_button_msgs, files_msgs, pdf_file_msgs
 
 def initial_prompt() -> str:
         """
         Creates an initial prompt which will be uttered by the bot at startup
         """
-        prompt = '**Willkommen beim Chatbot der Stadt Göppingen!** Ich werde Sie beim Ausfüllen eines gewünschten Formulars unterstützen. **Antworten Sie im Folgenden einfach per Text Eingabe in der Textbox**. Wenn Ihnen **mehrere Antwortmöglichkeiten** präsentiert werden, können Sie entweder die gewünschte **Antwort ausschreiben** oder die **Nummer der Antwort (1/1.) angeben**. **Optionale Felder** können Sie einfach durch Drücken der **Enter-Taste (leere Nachricht) überspringen**.\nWählen Sie aus den folgenden Formularen:\n'
-        available = sorted(list(FORMS.keys()))
-        # utter available forms to user
-        prompt += "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(available))
+        prompt = (
+            '**Willkommen beim Chatbot der Stadt Göppingen!** Ich werde Sie beim Ausfüllen eines gewünschten Formulars unterstützen. Auf welcher Sprache wollen wir miteinander sprechen?\n'
+            '**Welcome to the chatbot for the city of Göppingen!** I will help you fill out the form you need. Which language would you like us to speak?\n'
+            '**Bienvenue sur le chatbot de la ville de Göppingen !** Je vais vous aider à remplir le formulaire souhaité. Dans quelle langue voulez-vous que nous parlions ?\n'
+            '**Göppingen şehrinin chatbotuna hoş geldiniz!** İstediğiniz formu doldurmanıza yardımcı olacağım. Hangi dilde konuşmak istersiniz?'
+        )
+
+        
+        # available = sorted(list(FORMS.keys()))
+        # # utter available forms to user
+        # prompt += "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(available))
         return prompt
 
 def make_and_get_pdf(state: dict) -> str:
@@ -60,35 +69,84 @@ def parse_args():
     
     return vars(parser.parse_args())
 
+def handle_upload(files, chat, s):
+    s = s or {}
+    chat = chat or []
+
+    s["uploaded_files"] = files
+
+    if s.get("awaiting_final_upload"):
+        # Abschluss: Buttons ausblenden & Schlussnachricht
+        s["awaiting_final_upload"] = False
+        s["show_upload"] = False     # Upload-Button & Liste ausblenden
+        s["completed"] = False       # Download-Button & PDF-Komponente ausblenden
+
+        lang = (s.get("lang") or "de")
+        msg = final_msgs.get(lang, final_msgs["de"])
+
+        chat.append(ChatMessage(
+            role="assistant",
+            content=msg
+        ))
+        # Immer 3 Outputs: chat, state, files (leer)
+        return chat, s, None
+
+    # Normaler Upload mitten im Dialog: Liste anzeigen
+    return chat, s, files
+
+
 def main(**kwargs):
 
     share = kwargs.get("share", False)
     debug = kwargs.get("debug", False)
     enable_download = kwargs.get("enable_download", False)
+    gr.set_static_paths(paths=[Path.cwd().absolute() / "images"])
 
-
-    with gr.Blocks() as demo:
-        chatbot = gr.Chatbot(type='messages')
+    with gr.Blocks(fill_height=True) as demo:
+        chatbot = gr.Chatbot(type='messages', render_markdown=True,scale=1)
         state = gr.State(value=None)
         txt = gr.Textbox(placeholder="Hier tippen...")
 
-        download_btn = gr.Button("PDF erzeugen & herunterladen", visible=False)
-        pdf_file     = gr.File(label="Dein ausgefülltes Formular", visible=False)
+        # --- UI-Komponenten mit sicheren Defaults erstellen (ohne state.get ...)
+        # Button-Text (gr.Button) kommt über value, File-/Files-Label über label
+        download_btn = gr.Button(value=download_button_msgs.get('de'), visible=False)
+        pdf_file     = gr.File(label=pdf_file_msgs.get('de'), visible=False)
 
-        txt.submit(chatbot_fn, 
-                   inputs=[txt, chatbot, state],
-                   outputs=[chatbot, state, txt])
-        demo.load(lambda: [ChatMessage(
-            role='assistant',
-            content=initial_prompt()
-        )],
-                  outputs=[chatbot])
-        
+        upload_btn     = gr.UploadButton(label="Upload files", file_count="multiple", visible=False)
+        uploaded_files = gr.Files(label=files_msgs.get('de'), visible=False)
+
+        # --- Events
+        txt.submit(
+            chatbot_fn,
+            inputs=[txt, chatbot, state],
+            outputs=[chatbot, state, txt]
+        )
+
+        demo.load(
+            lambda: [ChatMessage(role='assistant', content=initial_prompt())],
+            outputs=[chatbot]
+        )
+
+        # Download-Bereich dynamisch steuern (Sichtbarkeit + Texte nach Sprache)
         if enable_download:
             state.change(
                 lambda s: (
-                    gr.update(visible=bool(s.get("completed"))),
-                    gr.update(visible=bool(s.get("completed")))
+                    # Download-Button
+                    gr.update(
+                        visible=bool(s and s.get("completed")),
+                        value=download_button_msgs.get(
+                            (s or {}).get("lang", "de"),
+                            download_button_msgs["de"]
+                        )
+                    ),
+                    # PDF-File-Komponente
+                    gr.update(
+                        visible=bool(s and s.get("completed")),
+                        label=pdf_file_msgs.get(
+                            (s or {}).get("lang", "de"),
+                            pdf_file_msgs["de"]
+                        )
+                    ),
                 ),
                 inputs=[state],
                 outputs=[download_btn, pdf_file]
@@ -100,6 +158,36 @@ def main(**kwargs):
                 inputs=[state],
                 outputs=[pdf_file]
             )
+
+        # Upload-Event: Dateien speichern & ggf. Abschlussmeldung + Buttons aus
+        upload_btn.upload(
+            handle_upload,
+            inputs=[upload_btn, chatbot, state],        # files, chat, state
+            outputs=[chatbot, state, uploaded_files]    # chat, state, files (Anzeige)
+        )
+
+        # Upload-UI (Button + Files-Liste) dynamisch steuern
+        state.change(
+            lambda s: (
+                # UploadButton: Sichtbarkeit + dynamische Beschriftung aus state['upload_label']
+                gr.update(
+                    visible=bool(s and s.get("show_upload")),
+                    label=((s or {}).get("upload_label") or "Dateien hochladen"),
+                    value=None  # Niemals Texte als value setzen (value = Dateien)
+                ),
+                # Files-Liste: Sichtbarkeit, Inhalte, Label nach Sprache
+                gr.update(
+                    visible=bool(s and s.get("show_upload")),
+                    value=((s or {}).get("uploaded_files") if (s and s.get("show_upload")) else None),
+                    label=files_msgs.get(
+                        (s or {}).get("lang", "de"),
+                        files_msgs["de"]
+                    )
+                )
+            ),
+            inputs=[state],
+            outputs=[upload_btn, uploaded_files]
+        )
 
     demo.launch(debug=debug, share=share)
 

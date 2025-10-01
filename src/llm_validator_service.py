@@ -2,8 +2,16 @@ import requests
 import logging
 from typing import Optional
 from openai import OpenAI, OpenAIError
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+class ResponseFormat(BaseModel):
+    input_message:str # User Input
+    validity:str # True if input is valid, false otherwise
+    corrected_input:str # Set if llm is told to correct input based on some rule, else empty
+    in_valid_reason:str # reson for invalidity, if valid, empty
+
 
 class LLMValidatorService:
     """
@@ -48,5 +56,41 @@ class LLMValidatorService:
             logger.error(f"OpenAI request failed: {e}")
             return None
         
+    @staticmethod
+    def validate_openai_json_mode(system_prompt: str, user_input:str, json_schema:dict, model: str, client: OpenAI) -> Optional[str]:
+        """
+        Sends a prompt to the OpenAI API and retrieves the response.
+        """
+        resp = client.responses.create(
+        model=model,  # z.B. "gpt-4o-2024-08-06" oder "gpt-4o-mini"
+        input=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_input},
+        ],
+        text={
+            "format": {
+                "type": "json_schema",     # Structured Outputs aktivieren
+                "name": "structured_output",# <-- MUSS hier stehen (nicht im Schema)
+                "schema": json_schema,  # <-- reines JSON Schema-Objekt
+                "strict": True             # harte Schemakonformität
+            }
+        }
+    )
+        return resp
+    
+    def validate_openai_structured_output(self,system_prompt: str, user_input: str, json_schema:BaseModel, model:str, client: OpenAI):
+        response = client.responses.parse(
+        model=model,
+        input=[
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": user_input,
+            },
+        ],
+        text_format=json_schema,
+    )
+        return response
+                
 
     
