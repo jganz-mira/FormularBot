@@ -10,6 +10,9 @@ import re
 from pydantic import BaseModel
 from .llm_validator_service import LLMValidatorService
 from openai import OpenAI
+import cv2 
+import pytesseract
+from src.validator_helper import response_to_dict
 
 def load_forms(form_path:str, validator_map:Dict[str,callable]):
     forms = {}
@@ -23,71 +26,139 @@ def load_forms(form_path:str, validator_map:Dict[str,callable]):
             forms[form_key] = form_conf
     return forms
 
+# def next_slot_index(
+#     slots_def: List[Dict[str, Any]],
+#     state: Dict[str, Any]
+# ) -> Tuple[Optional[int], Dict[str, Any]]:
+#     """
+#     Determines the index of the next slot to ask based on the slot definitions
+#     and current state, skipping slots whose 'condition' is not fulfilled.
+
+#     If a slot has a 'condition', it will only be considered if the condition is met.
+#     If the condition is not fulfilled, the slot will be skipped and assigned an
+#     empty string as its value in the state to prevent assertion errors for dependent slots.
+
+#     Args:
+#         slots_def: A list of slot definition dictionaries. Each slot may include a 
+#                    'condition' that determines whether it should be shown.
+#         state: A dictionary containing:
+#             - "idx" (int): the current index to start checking from,
+#             - "responses" (Dict[str, Dict[str, str]]): previous answers,
+#               where each key is a slot name, and the value is a dict with:
+#                 - "value" (str): the user's input,
+#                 - "target_filed_name" (str): the field name in the output.
+
+#     Returns:
+#         A tuple containing:
+#             - The index (int) of the next askable slot, or None if no such slot exists.
+#             - The updated state dictionary.
+#     """
+
+#     # current index to start searching from
+#     start_idx = state["idx"]
+#     responses = state["responses"]
+
+
+#     for i in range(start_idx, len(slots_def)):
+#         slot_def = slots_def[i]
+#         cond = slot_def.get("condition")
+#         # if a condition is defined, skip unless it's fulfilled
+#         if cond:
+#             assert responses.get(cond["slot_name"]) is not None, "The slot on which a slot is conditioned needs to be asked first!"
+#             # here one can define other "conditions" to check for
+#             if cond["slot_value"] == 'not empty':
+#                 prev_val = responses.get(cond["slot_name"])
+#                 if prev_val['value'] == "":
+#                     # If conditional slot is skipped, write an empty string so if another slot depends on that one, no assertion is triggered
+#                     state["responses"][slot_def["slot_name"]] = {"value": "", "target_filed_name": slot_def["filed_name"]}
+#                     # Afterward, we move on to the next slot
+#                     continue
+
+#             # if the slot_value contains a list, then the conditional slot will only be active if the the
+#             # slot_value of the other filed is in this list
+#             elif isinstance(cond['slot_value'], list):
+#                 prev_val = responses.get(cond["slot_name"])
+#                 if prev_val['value'] not in cond["slot_value"]:
+#                     state["responses"][slot_def["slot_name"]] = {"value": "", "target_filed_name": slot_def["filed_name"]}
+#                     continue
+#             # fallback condition, check for equality to "slot_value" defined in json
+#             else:
+#                 prev_val = responses.get(cond["slot_name"])
+#                 if prev_val['value'] != cond["slot_value"]:
+#                     state["responses"][slot_def["slot_name"]] = {"value": "", "target_filed_name": slot_def["filed_name"]}
+#                     continue
+#         # return next slot index and the updated state
+#         return i, state
+#     # if there is no next slot (end of document), next slot index i is none
+#     return None, state
+
 def next_slot_index(
     slots_def: List[Dict[str, Any]],
     state: Dict[str, Any]
 ) -> Tuple[Optional[int], Dict[str, Any]]:
     """
-    Determines the index of the next slot to ask based on the slot definitions
-    and current state, skipping slots whose 'condition' is not fulfilled.
-
-    If a slot has a 'condition', it will only be considered if the condition is met.
-    If the condition is not fulfilled, the slot will be skipped and assigned an
-    empty string as its value in the state to prevent assertion errors for dependent slots.
-
-    Args:
-        slots_def: A list of slot definition dictionaries. Each slot may include a 
-                   'condition' that determines whether it should be shown.
-        state: A dictionary containing:
-            - "idx" (int): the current index to start checking from,
-            - "responses" (Dict[str, Dict[str, str]]): previous answers,
-              where each key is a slot name, and the value is a dict with:
-                - "value" (str): the user's input,
-                - "target_filed_name" (str): the field name in the output.
-
-    Returns:
-        A tuple containing:
-            - The index (int) of the next askable slot, or None if no such slot exists.
-            - The updated state dictionary.
+    Liefert den Index des nächsten abzufragenden Slots.
+    Regeln:
+      - Bereits beantwortete Slots (value != "" und nicht None) werden übersprungen.
+      - Slots, deren 'condition' NICHT erfüllt ist, werden 'soft-geskippt':
+        state['responses'][slot] = {'value': '', 'target_filed_name': ..., 'locked': True}
+        und übersprungen.
+      - Leere, aber NICHT gelockte Antworten gelten als "noch offen" → werden gefragt.
     """
+    start_idx = int(state.get("idx", 0) or 0)
+    responses = state.setdefault("responses", {})
 
-    # current index to start searching from
-    start_idx = state["idx"]
-    responses = state["responses"]
-
+    def _answered(slot_name: str) -> bool:
+        """True, wenn Slot bereits sinnvoll gefüllt ODER durch Condition-Lock gesperrt ist."""
+        entry = responses.get(slot_name)
+        if not entry:
+            return False
+        if entry.get("locked"):
+            return True
+        val = entry.get("value")
+        # leere Strings/Listen/Dicts = nicht beantwortet
+        return val not in (None, "", [], {})
 
     for i in range(start_idx, len(slots_def)):
         slot_def = slots_def[i]
+        slot_name = slot_def["slot_name"]
         cond = slot_def.get("condition")
-        # if a condition is defined, skip unless it's fulfilled
-        if cond:
-            assert responses.get(cond["slot_name"]) is not None, "The slot on which a slot is conditioned needs to be asked first!"
-            # here one can define other "conditions" to check for
-            if cond["slot_value"] == 'not empty':
-                prev_val = responses.get(cond["slot_name"])
-                if prev_val['value'] == "":
-                    # If conditional slot is skipped, write an empty string so if another slot depends on that one, no assertion is triggered
-                    state["responses"][slot_def["slot_name"]] = {"value": "", "target_filed_name": slot_def["filed_name"]}
-                    # Afterward, we move on to the next slot
-                    continue
 
-            # if the slot_value contains a list, then the conditional slot will only be active if the the
-            # slot_value of the other filed is in this list
-            elif isinstance(cond['slot_value'], list):
-                prev_val = responses.get(cond["slot_name"])
-                if prev_val['value'] not in cond["slot_value"]:
-                    state["responses"][slot_def["slot_name"]] = {"value": "", "target_filed_name": slot_def["filed_name"]}
-                    continue
-            # fallback condition, check for equality to "slot_value" defined in json
+        # Bereits beantwortet? -> weiter
+        if _answered(slot_name):
+            continue
+
+        # Condition prüfen
+        if cond:
+            dep = cond["slot_name"]
+            assert responses.get(dep) is not None, \
+                "The slot on which a slot is conditioned needs to be asked first!"
+
+            dep_val = responses.get(dep, {}).get("value")
+            should_ask = False
+
+            if cond["slot_value"] == "not empty":
+                should_ask = bool(dep_val)
+            elif isinstance(cond["slot_value"], list):
+                should_ask = dep_val in cond["slot_value"]
             else:
-                prev_val = responses.get(cond["slot_name"])
-                if prev_val['value'] != cond["slot_value"]:
-                    state["responses"][slot_def["slot_name"]] = {"value": "", "target_filed_name": slot_def["filed_name"]}
-                    continue
-        # return next slot index and the updated state
+                should_ask = (dep_val == cond["slot_value"])
+
+            if not should_ask:
+                # soft-skip: als gelockt markieren, damit wir später nicht wiederkommen
+                responses[slot_name] = {
+                    "value": "",
+                    "target_filed_name": slot_def.get("filed_name"),
+                    "locked": True
+                }
+                continue  # nächsten Slot prüfen
+
+        # Wenn wir hier sind: Slot ist dran
         return i, state
-    # if there is no next slot (end of document), next slot index i is none
+
+    # Keine weiteren Slots
     return None, state
+
 
 def print_summary(state: Dict[str, Any], forms: Dict[str, Any]) -> None:
     """
@@ -198,19 +269,19 @@ def compose_prompt_for_slot(slot_def: Dict[str, Any]) -> str:
     prompt = slot_def.get("prompt", slot_def.get("description", "")) or ""
 
     # Choices anhängen
-    if slot_def.get("slot_type") == "choice":
-        opts = slot_def.get("choices", [])
-        if opts:
-            prompt += "\n" + "\n".join(f"{i+1}. {o}" for i, o in enumerate(opts))
+    # if slot_def.get("slot_type") == "choice":
+    #     opts = slot_def.get("choices", [])
+    #     if opts:
+    #         prompt += "\n" + "\n".join(f"{i+1}. {o}" for i, o in enumerate(opts))
 
-    # Zusätzliche Infos anhängen
-    add_info = slot_def.get("additional_information")
-    if add_info:
-        if isinstance(add_info, list):
-            extra = "\n\n" + "\n".join(add_info)
-        else:
-            extra = "\n\n" + str(add_info)
-        prompt += extra
+    # # Zusätzliche Infos anhängen
+    # add_info = slot_def.get("additional_information")
+    # if add_info:
+    #     if isinstance(add_info, list):
+    #         extra = "\n\n" + "\n".join(add_info)
+    #     else:
+    #         extra = "\n\n" + str(add_info)
+    #     prompt += extra
 
     return prompt
 
@@ -363,3 +434,37 @@ def llm_based_match(message:str, choices: List[str]) -> Dict:
     match = response.output_parsed.match
     return match, score
 
+class Name(BaseModel):
+    family_name: str
+    given_name: str
+    city: str
+    birth_date: str
+
+class HRA(BaseModel):
+    authority: str
+    hra_number: str
+    company_name: str
+    legal_type:str
+    address:str
+    activity:str
+    ceo:List[Name]
+
+
+def extract_information_HRA_info_from_img(img)->Dict:
+    extracted_text = pytesseract.image_to_string(img,lang='deu')
+    # post processing with llm
+    system_prompt = (f"Du bist ein hochpräzises Texextraktionsmodell welches aus einem OCR string eines Bildes Informationen extrahiert. Extrahiere aus dem folgenden Str:\n"
+                 "Den Namen des Registergerichts / Handelsregister (authority), die Handelsregisternummer (HRA), den Namen der Firma (company_name), die Geschäftsform (legal_type) (GmbH, GDR, etc.), die Adresse des Sitzes/Niederlassung/Geschäftsanschrift (address), den Gegenstand des Unternehmens (activity), den Nachnamen(family_name), Vornamen(given_name) (im Text findest du immer Nachname, Vorname, Wohnort, Geburtsdatum),  Wohnort (city) und das Geburtsdatum (birthdate)(Nur das Datum im Format: TT.MM.JJJJ) des Geschäftsführers (CEO) (lege diese angeben in einer json ab.).\n"
+                 "Halte dich strikt an das JSON Format, erfinde unter keinen Umständen Angaben. Falls eine Angabe fehlt, lass das entsprechende Feld leer.")
+
+    llm_service = LLMValidatorService()
+
+    response = llm_service.validate_openai_structured_output(
+        system_prompt=system_prompt,
+        user_input=extracted_text,
+        model="gpt-4.1-mini",
+        client=OpenAI(),
+        json_schema = HRA
+    )
+
+    return response_to_dict(response)

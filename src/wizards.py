@@ -1,6 +1,6 @@
-"""wizzards are mainly short, stateful multiturn conversations with an llm.
-If a user started a wizzard in a former chat bot function call, the wizzard is marked as active in the chatbot functions state and the information
-needed to perform the wizzards task is stored in a wizzard handles object"""
+"""wizards are mainly short, stateful multiturn conversations with an llm.
+If a user started a wizard in a former chat bot function call, the wizard is marked as active in the chatbot functions state and the information
+needed to perform the wizards task is stored in a wizard handles object"""
 
 # language_wizard.py
 from dataclasses import dataclass, field
@@ -779,3 +779,194 @@ class ActivityWizard:
             "final_activity_text": s.final_activity_text,
             "previous_response_id": s.previous_response_id
         }
+
+@dataclass
+class ShortCutWizardState:
+    turns: int = 0
+    lang_code: Optional[str] = None
+    phase: str = "ask_path"       # ask_path | capture | upload | cr_mock | review | ask_branch_addr | done
+    choice: Optional[str] = None  # 'camera' | 'upload' | 'crf' | 'manual'
+    extracted: Dict[str, Any] = field(default_factory=dict)
+    edited: Dict[str, Any] = field(default_factory=dict)
+
+class ShortCutWizard:
+    """
+    Fragt nach dem Abkürzungsweg:
+      1) Foto aufnehmen (st.camera_input)
+      2) Bild hochladen (st.file_uploader)
+      3) Creditreform API (Mock)
+      4) Manuell weiter
+
+    Ablauf:
+      - ask_path: 4 Buttons anzeigen (UI in streamlit_main.py)
+      - capture/upload/cr_mock: Bild erfassen/hochladen oder Mock-Daten vorbereiten
+      - review: Daten als Tabelle (st.data_editor) editieren, Buttons: "Übernehmen" / "Neues Bild"
+      - ask_branch_addr: Ja/Nein zur Betriebsstätten-Anschrift
+      - done: Wizard endet; Bot kann Slots füllen (Mapping-Hook in streamlit_main.py)
+    """
+    def __init__(self, state: Optional[ShortCutWizardState] = None):
+        self.state = state or ShortCutWizardState()
+
+    def step(self, user_text: Optional[str]) -> tuple[str, bool, Optional[str]]:
+        s = self.state
+        lang = s.lang_code or "de"
+
+        if s.phase == "ask_path":
+            s.turns += 1
+            msg = (
+                "Wie möchten Sie fortfahren?\n\n"
+                "1) **Foto aufnehmen**\n"
+                "2) **Bild hochladen**\n"
+                "3) **Creditreform (Mock)**\n"
+                "4) **Manuell weiter ausfüllen**\n\n"
+                "_Bitte verwenden Sie die Buttons unter der Nachricht._"
+            )
+            return msg, False, lang
+
+        if s.phase in ("capture", "upload", "cr_mock"):
+            # UI übernimmt hier (Kamera/Upload/Mock). Wir geben nur Status aus.
+            txt = {
+                "capture": "Bitte nehmen Sie jetzt ein Foto Ihres Handelsregisterauszugs auf.",
+                "upload":  "Bitte laden Sie eine Bilddatei Ihres Handelsregisterauszugs hoch.",
+                "cr_mock": "Creditreform-Mock wird vorbereitet …",
+            }[s.phase]
+            return txt, False, lang
+
+        if s.phase == "review":
+            return ("Bitte prüfen/ergänzen Sie die erkannten Daten in der Tabelle unten und klicken Sie anschließend **Daten übernehmen** oder **Neues Bild verwenden**.", False, lang)
+
+        if s.phase == "ask_branch_addr":
+            return ("Bezieht sich die angegebene **Adresse** auch auf die **Betriebsstätte**? (Ja/Nein)", False, lang)
+
+        if s.phase == "done":
+            return ("Alles klar – ich übernehme die Daten und fülle die passenden Felder. ✅", True, lang)
+
+        return ("…", False, lang)
+
+    def export_state(self) -> Dict[str, Any]:
+        s = self.state
+        return {
+            "turns": s.turns,
+            "lang_code": s.lang_code,
+            "phase": s.phase,
+            "choice": s.choice,
+            "extracted": s.extracted,
+            "edited": s.edited,
+        }
+    
+    def apply_mapping_and_finish(self, app_state: dict, slots_def: list[dict]) -> None:
+        """
+        Übernimmt self.state.edited in app_state['responses'], aber nur, wenn der Slot existiert.
+        Setzt anschließend den Wizard außer Kraft und signalisiert dem Bot, mit dem 1. Slot weiterzumachen.
+        """
+        # --- Guards & Vorbereitung
+        if not isinstance(app_state, dict):
+            return
+
+        responses = app_state.setdefault("responses", {})
+        slot_names = {s.get("slot_name") for s in (slots_def or []) if isinstance(s, dict) and s.get("slot_name")}
+        filed_names = {s.get("slot_name"):s.get("filed_name") for s in (slots_def or []) if isinstance(s, dict) and s.get("slot_name")}
+        edited = dict(self.state.edited or {})
+        is_branch_same = bool(edited.get("_is_branch_addr_same"))
+
+        def _has(slot: str) -> bool:
+            return slot in slot_names
+
+        def _val_from_edited(key: str, default=""):
+            v = edited.get(key, default)
+            return v.strip() if isinstance(v, str) else v
+
+        def _set(slot: str, target_filed_name:str, value):
+            """Minimal-schreibweise: {'value': value} (target_filed_name ergänzt der Bot später)"""
+            if not _has(slot):
+                return
+            # In deinem Bot werden Responses als Dict mit 'value' erwartet.
+            responses[slot] = {"value": value, "target_filed_name": target_filed_name}
+
+        # --- 1) Direktes Feld-Mapping (flache Schlüssel) -----------------------
+        direct_mapping = [
+            ("authority",    "hra_office"),
+            ("hra_number",   "hra_number"),
+            ("company_name", "registered_name"),
+            ("legal_type",   "registered_type"),
+            ("activity",     "activity"),
+        ]
+        for src_key, slot_name in direct_mapping:
+            if _has(slot_name):
+                _set(slot_name, filed_names[slot_name], _val_from_edited(src_key))
+
+        # --- 2) Adressen --------------------------------------------------------
+        if _has("representative_address"):
+            _set("representative_address", filed_names.get("representative_address"), _val_from_edited("address"))
+
+        if _has("main_branch_address"):
+            if is_branch_same:
+                _set("main_branch_address", filed_names.get("main_branch_address"), _val_from_edited("address"))
+            else:
+                # leer lassen → Bot fragt normal weiter
+                _set("main_branch_address", "")
+
+        # --- 3) CEOs: erster Eintrag in Personenfelder + Anzahl -----------------
+        # Erwartet: edited["ceo"] als List[Dict] mit Keys: family_name, given_name, city, birth_date
+        ceo_data = edited.get("ceo")
+        first_ceo = None
+        ceo_count = 0
+
+        # Normalisieren auf List[Dict]
+        if isinstance(ceo_data, list):
+            if ceo_data and isinstance(ceo_data[0], dict):
+                # Bereits im neuen Schema
+                ceo_list = ceo_data
+            elif ceo_data and isinstance(ceo_data[0], list):
+                # Alte Form: List[List[str]] → heben in Dicts
+                ceo_list = []
+                for row in ceo_data:
+                    family = row[0] if len(row) > 0 else ""
+                    given  = row[1] if len(row) > 1 else ""
+                    city   = row[2] if len(row) > 2 else ""
+                    bdate  = row[3] if len(row) > 3 else ""
+                    ceo_list.append({
+                        "family_name": family or "",
+                        "given_name":  given or "",
+                        "city":        city or "",
+                        "birth_date":  bdate or "",
+                    })
+            else:
+                ceo_list = []
+        else:
+            ceo_list = []
+
+        ceo_count = len(ceo_list)
+        first_ceo = ceo_list[0] if ceo_list else None
+
+        # Anzahl an CEOs → num_representatives (als String, da Slot 'text' ist)
+        if _has("num_representatives") and ceo_count:
+            _set("num_representatives", filed_names.get("num_representatives"), str(ceo_count))
+
+        # Ersten CEO in Einzel-Slots mappen (nur wenn vorhanden)
+        if first_ceo:
+            fam = (first_ceo.get("family_name") or "").strip()
+            giv = (first_ceo.get("given_name")  or "").strip()
+            bdt = (first_ceo.get("birth_date")  or "").strip()
+
+            # Format-Kosmetik fürs Datum (falls "YYYY-MM-DD" → "DD.MM.YYYY")
+            if bdt and re.match(r"^\d{4}-\d{2}-\d{2}$", bdt):
+                yyyy, mm, dd = bdt.split("-")
+                bdt = f"{dd}.{mm}.{yyyy}"
+
+            if _has("family_name") and fam:
+                _set("family_name", filed_names.get("family_name"), fam)
+            if _has("given_name") and giv:
+                _set("given_name", filed_names.get("given_name"), giv)
+            if _has("birth_date") and bdt:
+                _set("birth_date", filed_names.get("birth_date"), bdt)
+
+        # --- 4) Wizard deaktivieren & Bot weiterschalten ------------------------
+        app_state["active_wizard"] = None
+        app_state["wizard_handles"] = None
+
+        # Suche von vorne beginnen, damit next_slot_index alle Prefills sauber überspringt
+        app_state["idx"] = 0
+
+        # Signal: der Bot soll den nächsten offenen Slot sofort fragen
+        app_state["awaiting_first_slot_prompt"] = True

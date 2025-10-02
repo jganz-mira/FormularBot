@@ -1,384 +1,411 @@
+# bot.py — Vereinheitlicht & klar strukturierter Wizard-Ablauf
+# - Nur noch 'active_wizard' (ein z): 'language_wizard' | 'form_selection_wizard' | 'shortcut_wizard'
+# - Nur noch 'wizard_handles' (ein z) für optionale UI-Handles
+# - Sichtbar markierte Abschnitte: START / END / NEXT START je Wizard
 
 from typing import Optional, Tuple, List, Dict, Any
 import os
-from .validators import BaseValidators, GewerbeanmeldungValidators
-from .bot_helper import load_forms, next_slot_index, print_summary, map_yes_no_to_bool, save_responses_to_json, utter_message_with_translation, compose_prompt_for_slot, valid_choice_slot, fuzzy_choice_match
-from .llm_validator_service import LLMValidatorService
 from openai import OpenAI
+
+from .validators import BaseValidators, GewerbeanmeldungValidators
+from .bot_helper import (
+    load_forms, next_slot_index, print_summary, map_yes_no_to_bool,
+    save_responses_to_json, utter_message_with_translation,
+    compose_prompt_for_slot, valid_choice_slot
+)
+from .wizards import (
+    LanguageWizard, LanguageWizardState,
+    FormSelectionWizard, FormSelectionWizardState
+)
+from .translator import translate_from_de, translate_to_de
 from gradio import ChatMessage
-from .pdf_backend import GenericPdfFiller
-from .wizards import LanguageWizard, LanguageWizardState, FormSelectionWizard, FormSelectionWizardState, ActivityWizard, ActivityWizardState 
-from .translator import translate_from_de, translate_to_de, EDIT_CMDS, instruction_msgs
 
-# form_path = "../forms/ge"   # Passe ggf. den Pfad an
-# Basisverzeichnis bestimmen
-base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-forms_path = os.path.join(base_path, 'forms', 'ge')
-
-# OpenAI API Key aus Datei laden
-key_path = os.path.join(base_path, "../.key")
-try:
-    with open(key_path, 'r', encoding='utf-8') as f:
-        api_key = f.read().strip()
-        os.environ.setdefault("OPENAI_API_KEY", api_key)
-except FileNotFoundError:
-    raise RuntimeError(f"OpenAI key file not found at {key_path}")
+# ---------------------------------------------------------------------------
+# Projekt-Setup: Formulare laden (z. B. debug_zwei.json im erwarteten Format)
+# ---------------------------------------------------------------------------
+base_path   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+forms_path  = os.path.join(base_path, 'forms', 'ge')
 
 validator_map = {
     "BaseValidators": BaseValidators,
     "GewerbeanmeldungValidators": GewerbeanmeldungValidators(),
 }
 
-FORMS = load_forms(
-    form_path = forms_path,
-    validator_map = validator_map
-)
+FORMS = load_forms(form_path=forms_path, validator_map=validator_map)
 
-# EDIT_CMDS = {"ändern", "korrigieren", "korrektur", "update"} # diese kommen später an einen anderen Ort
-
-
-def build_wizard_from_state(name: str, data: dict):
-    if name == "language_wizard":
-        return LanguageWizard(LanguageWizardState(**(data or {})))
-    if name == "form_selection_wizard":
-        return FormSelectionWizard(FormSelectionWizardState(**(data or {})))
-    # if name == "activity_wizard":  # NEU
-    #     return ActivityWizard(ActivityWizardState(**(data or {})))
+# ---------------------------------------------------------------------------
+# Helfer für History-Kompatibilität (tuple | dict | ChatMessage)
+# ---------------------------------------------------------------------------
+def _role_of(msg: Any) -> Optional[str]:
+    if isinstance(msg, ChatMessage):
+        return msg.role
+    if isinstance(msg, dict):
+        return msg.get("role")
+    if isinstance(msg, (list, tuple)) and len(msg) >= 2:
+        return msg[0]
     return None
 
+def _content_of(msg: Any) -> str:
+    if isinstance(msg, ChatMessage):
+        return msg.content or ""
+    if isinstance(msg, dict):
+        return msg.get("content", "") or ""
+    if isinstance(msg, (list, tuple)) and len(msg) >= 2:
+        return str(msg[1])
+    return ""
+
+def _append_user_once(history: List[Any], user_text: Optional[str]) -> List[Any]:
+    """
+    Verhindert doppelte User-Einträge (Streamlit schreibt i. d. R. bereits in die History).
+    """
+    user_text = (user_text or "").strip()
+    if not user_text:
+        return history
+    if history and _role_of(history[-1]) == "user" and _content_of(history[-1]).strip() == user_text:
+        return history
+    history.append(ChatMessage(role="user", content=user_text))
+    return history
+
+# ---------------------------------------------------------------------------
+# Kernfunktion: linearer Flow gemäß Anforderung
+# ---------------------------------------------------------------------------
 def chatbot_fn(
     message: Optional[str],
-    history: List[ChatMessage],
+    history: List[Any],
     state: Optional[Dict[str, Any]]
-) -> Tuple[List[ChatMessage], Optional[Dict[str, Any]], str]:
+) -> Tuple[List[Any], Optional[Dict[str, Any]], str]:
     """
-    Core chatbot function driving the form-filling dialogue.
-
-    Args:
-        message: The latest user input (or None on initial load).
-        history: List of (user_msg, bot_msg) tuples for display.
-        state: A dict holding dialogue state, or None to initialize. Gradio calls the chatbot_fn on each user input, therefore state is a persitent memory.
-
-    Returns:
-        A tuple of (updated history, updated state).
+    Ablauf:
+      1) Begrüßung (einmalig)
+      2) Sprache abfragen (LanguageWizard)
+      3) Formular wählen (FormSelectionWizard)
+      4) ShortCutWizard starten (UI liegt in Streamlit)
+      5) Nach Mapping: erste offene Slotfrage stellen
+      6) Slot-Antwort verarbeiten → nächste Slotfrage
+      7) Nach letztem Slot: PDF-Download + Upload-Button aktivieren
     """
-    # --- Initialization on first call ---
+
+    # -----------------------------------------------------------------------
+    # 0) State initialisieren — saubere, klare Keys
+    # -----------------------------------------------------------------------
     if state is None:
         state = {
-            "form_type": None,   # which form the user has chosen
-            "lang": None,        # language code for future multi-language support
-            "responses": {},     # stores slot_name -> user_response
-            "idx": 0,            # pointer into the slots list
-            "pdf_file": None,     # path to the pdf file for later overwrite
-            "active_wizzard":None, # whether there is currently a wizzard active 
-            "wizzard_handles":None # handles object of the current wizzard
+            "form_type": None,            # Key des gewählten Formulars
+            "lang": None,                 # ISO-639-1 Sprachcode
+            "responses": {},              # slot_name -> {"value":..., "target_filed_name":...}
+            "idx": 0,                     # Zeiger auf den nächsten zu fragenden Slot
+            "pdf_file": None,             # Ziel-PDF
+            "active_wizard": None,        # 'language_wizard' | 'form_selection_wizard' | 'shortcut_wizard'
+            "wizard_state": None,         # serialisierter Substate des aktiven Wizards
+            "wizard_handles": None,       # optionale UI-Handles (Shortcut-Wizard)
+            "_greeted": False,            # interne Flag: Begrüßung erfolgt
+            "ui": None,                   # UI-Direktive für Streamlit (aktueller Slot)
+            "completed": False,           # Abschlussstatus (PDF-Buttons)
+            "show_upload": False,         # Upload einblenden
+            "upload_label": "Dateien hochladen",
+            "awaiting_first_slot_prompt": False  # nach Shortcut-Mapping: erste Slotfrage
         }
-    # safe user message
-    if message is not None:
-        history.append(ChatMessage(role="user", content=message))
 
-    # -------------------------
-    # Wizard-Router (immer VOR dem restlichen Flow)
-    # -------------------------
-    while True:
-        active_name = state.get("active_wizard")
-        wizard_state_data = state.get("wizard_state")
-        wizard = build_wizard_from_state(active_name, wizard_state_data) if active_name else None
+    # Nutzer-Text ggf. einmalig in History übernehmen (keine Duplikate)
+    history = _append_user_once(history, message)
 
-        # Falls kein aktiver Wizard, prüfen ob einer gestartet werden muss
-        if not wizard:
-            if state.get("lang") is None:
-                wizard = LanguageWizard()
-                state["active_wizard"] = "language_wizard"
-            elif state.get("form_type") is None:
-                wizard = FormSelectionWizard(
-                    FormSelectionWizardState(
-                        lang_code=state.get("lang"),
-                        available_form_keys=sorted(list(FORMS.keys()))
-                    )
-                )
-                state["active_wizard"] = "form_selection_wizard"
-            else:
-                # # >>> NEU: Activity-Wizard auto-starten, wenn aktueller Slot 'activity' ist
-                # form_key = state.get("form_type")
-                # if form_key:
-                #     slots_def = FORMS[form_key]["slots"]
-                #     cur_idx, _ = next_slot_index(slots_def, state)
-                #     if cur_idx is not None:
-                #         slot_def = slots_def[cur_idx]
-                #         slot_name = slot_def.get("slot_name")
-                #         # Option A: fester Slotname
-                #         if slot_name == "activity" or slot_def.get("use_activity_wizard") is True:
-                #             wizard = ActivityWizard(
-                #                 ActivityWizardState(lang_code=state.get("lang"))
-                #             )
-                #             state["active_wizard"] = "activity_wizard"
-                #         else:
-                #             # Kein Wizard nötig → AUS DER SCHLEIFE RAUS
-                #             break
-                #     else:
-                #         # Kein Wizard nötig → AUS DER SCHLEIFE RAUS
-                #         break
-                break
+    # -----------------------------------------------------------------------
+    # 1) Begrüßung (einmalig) — robust ggü. UI-Vorgrüßung
+    # -----------------------------------------------------------------------
+    if not state.get("_greeted", False):
+        greet_de = "👋 Willkommen! Ich helfe Ihnen beim Ausfüllen von Formularen. Los geht’s!"
+        history = utter_message_with_translation(history, greet_de, target_lang=state.get("lang"))
+        state["_greeted"] = True
+        # Kein return: wir gehen direkt zur Sprachauswahl.
 
-        # Wenn Wizard frisch gestartet wurde (turns == 0): step(None) → Initialprompt
-        # Wenn Wizard schon läuft: step(message) → verarbeitet Nutzereingab
-        user_text = message
-        reply, done, lang_code = wizard.step(user_text)
-        history = utter_message_with_translation(history=history, prompt=reply, target_lang = state.get('lang'), source_lang = lang_code)
-        state["wizard_state"] = wizard.export_state()
-
-        if done:
-            # Nebenwirkungen übertragen
-            if state["active_wizard"] == "language_wizard":
-                state["lang"] = state["wizard_state"].get("lang_code")
-
-                # instruction message
-                instruction_msg = instruction_msgs.get(state["lang"], instruction_msgs["de"])
-                history = utter_message_with_translation(history, instruction_msg, state.get('lang'))
-            elif state["active_wizard"] == "form_selection_wizard":
-                selected = state["wizard_state"].get("selected_form_key")
-                if selected:
-                    state["form_type"] = selected
-                    state["idx"] = 0
-                    state["pdf_file"] = FORMS[selected]["pdf_file"]
-                    state["awaiting_first_slot_prompt"] = True
-            elif state["active_wizard"] == "activity_wizard":  # NEU
-                # Ergebnis in responses einsetzen und Slot weiterschalten
-                final_text = state["wizard_state"].get("final_activity_text")
-                if final_text:
-                    # Wir müssen wissen, welcher Slot gerade dran war:
-                    slots_def = FORMS[state["form_type"]]["slots"]
-                    cur_idx, _ = next_slot_index(slots_def, state)
-                    if cur_idx is not None:
-                        slot_def = slots_def[cur_idx]
-                        if slot_def.get("slot_name") == "activity":
-                            target_filed_name = slot_def.get("filed_name")
-                            state["responses"]["activity"] = {
-                                "value": final_text,
-                                "target_filed_name": target_filed_name
-                            }
-                            # current slot erledigt → Index erhöhen
-                            state["idx"] = cur_idx + 1
-            # Wizard schließen
-            state["active_wizard"] = None
+    # -----------------------------------------------------------------------
+    # 2) Wizard-Router: ggf. nächste Wizard-Stufe starten
+    # -----------------------------------------------------------------------
+    def _ensure_wizard_started():
+        if state.get("active_wizard"):
+            return  # bereits aktiv
+        if state.get("lang") is None:
+            state["active_wizard"] = "language_wizard"
             state["wizard_state"] = None
-            continue
-        else:
-            # Wizard wartet auf Nutzerantwort → Turn HIER beenden, restlicher Bot-Flow pausiert
+            return
+        if state.get("form_type") is None:
+            state["active_wizard"] = "form_selection_wizard"
+            state["wizard_state"] = None
+            return
+
+    _ensure_wizard_started()
+
+    # -----------------------------------------------------------------------
+    # LANGUAGE WIZARD — START
+    # -----------------------------------------------------------------------
+    if state.get("active_wizard") == "language_wizard":
+        wiz = LanguageWizard(LanguageWizardState(**(state.get("wizard_state") or {})))
+        user_text = None if state.get("wizard_state") is None else (message or "")
+        reply, done, lang_code = wiz.step(user_text)
+        history = utter_message_with_translation(history, reply, target_lang=state.get("lang"), source_lang=lang_code)
+        state["wizard_state"] = wiz.export_state()
+
+        if not done:
+            # wartet auf Nutzereingabe
             return history, state, ""
-        
-    # --- Gate: erste Slot-Frage nach Formularwahl ---
-    if state.get("awaiting_first_slot_prompt"):
-        state["awaiting_first_slot_prompt"] = False
 
-        # Slot 0 ermitteln
-        slots = FORMS[state["form_type"]]["slots"]
-        first_slot = slots[0]
+        # LANGUAGE WIZARD — END
+        state["lang"] = state["wizard_state"].get("lang_code") or state.get("lang") or "de"
+        state["active_wizard"] = None
+        state["wizard_state"] = None
 
-        state["show_upload"] = bool(first_slot.get("show_upload", False))
-        state["upload_label"] = first_slot.get("upload_label", "Dateien hochladen")
-        # translate label if nessecary
-        if state.get('lang') and state.get('lang') != 'de':
-            state["upload_label"] = translate_from_de(state["upload_label"], state.get('lang'))
+        # LANGUAGE WIZARD — NEXT START: FORM SELECTION WIZARD
+        state["active_wizard"] = "form_selection_wizard"
+        init_fs_state = FormSelectionWizardState(
+            lang_code=state["lang"],
+            available_form_keys=sorted(list(FORMS.keys()))
+        )
+        fs_wiz = FormSelectionWizard(init_fs_state)
+        fs_reply, fs_done, fs_lang = fs_wiz.step(None)  # erster Turn ohne Nutzereingabe
+        history = utter_message_with_translation(history, fs_reply, target_lang=state.get("lang"), source_lang=fs_lang)
+        state["wizard_state"] = fs_wiz.export_state()
 
-        # # Prompt bauen (ggf. später lokalisieren)
-        # prompt = first_slot.get("prompt", first_slot.get("description", ""))
+        if not fs_done:
+            # wartet auf Formularauswahl
+            return history, state, ""
 
-        # # Choice-Optionen anfügen (nummeriert)
-        # if first_slot.get("slot_type") == "choice":
-        #     options = first_slot["choices"]
-        #     prompt += "\n" + "\n".join(f"{i+1}. {o}" for i, o in enumerate(options))
-        prompt = compose_prompt_for_slot(first_slot)
+    # -----------------------------------------------------------------------
+    # FORM SELECTION WIZARD — START (Fortführung & Abschluss)
+    # -----------------------------------------------------------------------
+    if state.get("active_wizard") == "form_selection_wizard":
+        fs_state = state.get("wizard_state") or {}
+        wiz = FormSelectionWizard(FormSelectionWizardState(**fs_state))
 
-        # Bot-Ausgabe + Turn hier beenden, damit 'message' nicht als Slot-Antwort verarbeitet wird
-        history = utter_message_with_translation(history, prompt, state.get('lang'))
+        # Sicherheit: Sprache und Formularliste setzen
+        if wiz.state.lang_code is None:
+            wiz.state.lang_code = state.get("lang") or "de"
+        if not wiz.state.available_form_keys:
+            wiz.state.available_form_keys = sorted(list(FORMS.keys()))
+
+        # Wenn frisch gestartet → erster Turn ohne Nutzereingabe
+        user_text = None if not fs_state else (message or "")
+
+        reply, done, fs_lang = wiz.step(user_text)
+        history = utter_message_with_translation(history, reply, target_lang=state.get("lang"), source_lang=fs_lang)
+        state["wizard_state"] = wiz.export_state()
+
+        if not done:
+            # wartet auf Nutzerauswahl
+            return history, state, ""
+
+        # FORM SELECTION WIZARD — END
+        selected_key = wiz.state.selected_form_key
+        if selected_key:
+            # Formularwahl übernehmen & persistieren
+            state["form_type"] = selected_key
+            state["idx"] = 0
+            state["pdf_file"] = FORMS[selected_key]["pdf_file"]
+
+            # FORM SELECTION WIZARD — NEXT START: SHORTCUT WIZARD (UI)
+            # (UI rendert die 4 Buttons; Bot wartet, bis Mapping abgeschlossen ist.)
+            state["active_wizard"] = "shortcut_wizard"
+            state["wizard_handles"] = None
+
+            # jetzt ist die UI dran
+            return history, state, ""
+
+        # Falls kein Formular gewählt wurde (Edge-Case), Wizard schließen
+        state["active_wizard"] = None
+        state["wizard_state"] = None
         return history, state, ""
 
-    # --- Classify Edit intent via LLM classification ---
-    msg_low = (message or "").lower()
-    if state.get("form_type") and message and any(cmd in msg_low for cmd in EDIT_CMDS[state.get("lang")]):
-        # Slot-Beschreibungen sammeln
+    # -----------------------------------------------------------------------
+    # SHORTCUT WIZARD (UI-geführt) — START
+    # (Solange aktiv, nichts im Chat ausgeben; UI arbeitet.
+    #  Nach dem Finish muss die UI setzen:
+    #   - state["active_wizard"] = None
+    #   - state["wizard_handles"] = None
+    #   - state["awaiting_first_slot_prompt"] = True)
+    # -----------------------------------------------------------------------
+    if state.get("active_wizard") == "shortcut_wizard":
+        return history, state, ""
+
+    # SHORTCUT WIZARD — END → wir erwarten awaiting_first_slot_prompt = True
+    if state.pop("awaiting_first_slot_prompt", False):
         slots_def = FORMS[state["form_type"]]["slots"]
-        descriptions = "\n".join(
-            f"{slot_def['slot_name']}: {slot_def.get('description','')}" 
-            for slot_def in slots_def
-        )
-        # Prompt für LLM
-        classify_prompt = (
-            f"Basierend auf der Nutzeranfrage: '{message}' und den folgenden Slot-Beschreibungen,"
-            " gib nur den Slot-Namen zurück, der geändert werden soll, ohne zusätzliche Erklärungen:\n" + descriptions
-        )
-        slot_key = LLMValidatorService.validate_openai(classify_prompt, "gpt-4.1-mini", OpenAI())
-        if slot_key and any(slot_def['slot_name'] == slot_key for slot_def in slots_def):
-            # Index des Slots finden
-            edit_idx = next(
-                (i for i, slot_def in enumerate(slots_def) if slot_def['slot_name'] == slot_key),
-                None
+
+        # Sicherheit: von vorne suchen
+        if not isinstance(state.get("idx"), int):
+            state["idx"] = 0
+        else:
+            state["idx"] = 0
+
+        # Nächsten wirklich offenen Slot bestimmen
+        next_idx, state = next_slot_index(slots_def, state)
+        if next_idx is None:
+            # Nichts mehr zu tun → direkt in Abschluss-Flow springen
+            thanks = (
+                "Vielen Dank! Das Formular ist abgeschlossen. "
+                "Nachdem Sie das Formular unterschrieben haben, können Sie es hier zur elektronischen Übermittlung direkt hochladen."
             )
-            if edit_idx is not None:
-                # Resume-Index merken
-                state['resume_idx'] = state['idx']
-                state['edit_idx'] = edit_idx
-                # Nur den gewünschten Slot löschen
-                state['responses'].pop(slot_key, None)
-                # Auf den zu bearbeitenden Slot springen
-                state['idx'] = edit_idx
-                # Prompt für diesen Slot neu stellen
-                prompt = FORMS[state['form_type']]['slots'][edit_idx].get('prompt', FORMS[state['form_type']]['slots'][edit_idx].get('description', ''))
-                # Falls Choice-Slot, Optionen anhängen
-                slot_def = slots_def[edit_idx]
-                # if slot_def['slot_type'] == 'choice':
-                #     opts = slot_def['choices']
-                #     prompt += "\n" + "\n".join(f"{i+1}. {o}" for i, o in enumerate(opts))
-                prompt = compose_prompt_for_slot(slot_def)
-                history = utter_message_with_translation(history = history, prompt=prompt, target_lang = state.get('lang'))
-                return history, state, ""
-        # Wenn Klassifikation fehlschlägt, weiter normal
+            history = utter_message_with_translation(history, thanks, state.get("lang"))
+            print_summary(state=state, forms=FORMS)
+            state["completed"] = True
+            state["awaiting_final_upload"] = True
+            state["show_upload"] = True
+            base_label_de = "Unterschriebenes Formular hochladen und Vorgang abschließen."
+            state["upload_label"] = base_label_de if (state.get("lang") == "de" or not state.get("lang")) \
+                else translate_from_de(base_label_de, state["lang"])
+            state["uploaded_files"] = None
+            return history, state, ""
 
-    # --- Step 2: Handle input for current slot ---
-    # here we already have a from selected
-    form_conf  = FORMS[state["form_type"]] # get the selected formtype from state
-    slots_def  = form_conf["slots"] # get the slots from the selecetd form
-    validators = form_conf["validators"] # get the respective validators from the from 
-    # get next index
+        next_def = slots_def[next_idx]
+
+        # Upload-Steuerung für die UI (falls Slot Upload vorsieht)
+        state["show_upload"]  = bool(next_def.get("show_upload", False))
+        state["upload_label"] = next_def.get("upload_label", "Dateien hochladen")
+        if state.get("lang") and state["lang"] != "de":
+            state["upload_label"] = translate_from_de(state["upload_label"], state["lang"])
+
+        # Prompt + UI-Direktive an die Oberfläche geben
+        prompt_text = compose_prompt_for_slot(next_def)
+        history = utter_message_with_translation(history, prompt_text, state.get("lang"))
+        state["ui"] = _build_ui_for_slot(next_def)
+        return history, state, ""
+
+    # -----------------------------------------------------------------------
+    # Falls noch kein Formular gewählt (z. B. initiales Laden), hier enden
+    # -----------------------------------------------------------------------
+    if not state.get("form_type"):
+        return history, state, ""
+
+    # -----------------------------------------------------------------------
+    # 6) Aktuellen Slot verarbeiten (Choice/Text)
+    # -----------------------------------------------------------------------
+    form_conf   = FORMS[state["form_type"]]
+    slots_def   = form_conf["slots"]
+    validators  = form_conf["validators"]
+
     cur_idx, state = next_slot_index(slots_def, state)
-
     if message is not None and cur_idx is not None:
-        # get the info of the current slot
         slot_def   = slots_def[cur_idx]
-        slot_name = slot_def["slot_name"]
+        slot_name  = slot_def["slot_name"]
         slot_type  = slot_def["slot_type"]
-        target_filed_name = slot_def.get("filed_name",None)
-        check_box_condition = slot_def.get("check_box_condition",None)
-        hints = slot_def.get("hints",None)
-        # CHOICE slot handling
-        if slot_type== "choice":
-            # only translate the message if it is not a digit (index)
-            if state.get('lang') and state.get('lang') != 'de' and not message.strip().rstrip(".").isdigit():
-                message = translate_to_de(message, state.get('lang'))
-            selected_choice, matched = valid_choice_slot(message, slot_def, cutoff=0.75)
+        target     = slot_def.get("filed_name")
+        hints      = slot_def.get("hints")
+        check_cond = slot_def.get("check_box_condition")
+
+        # --- Choice-Slot -----------------------------------------------------
+        if slot_type == "choice":
+            # Fremdsprache → nach Deutsch übersetzen, außer Nutzer gibt Index
+            user_text = (message or "").strip()
+            if state.get("lang") and state["lang"] != "de" and not user_text.rstrip(".").isdigit():
+                user_text = translate_to_de(user_text, state["lang"])
+            selection, matched = valid_choice_slot(user_text, slot_def, cutoff=0.75)
             if not matched:
-                # re-prompt with options if invalid
-                opts = slot_def["choices"]
-                opt_text = "\n".join(f"{i+1}. {o}" for i, o in enumerate(opts))
-                history = utter_message_with_translation(history, f"Ungültige Auswahl. Bitte wählen:\n{opt_text}", state.get('lang'))
+                history = utter_message_with_translation(
+                    history,
+                    "Ungültige Auswahl. Bitte nutzen Sie die Buttons oder geben Sie die Nummer ein.",
+                    state.get("lang")
+                )
                 return history, state, ""
-            # map to canonical choice
-            selection = None
+            # Index-Shortcuts unterstützen
+            if user_text.rstrip(".").isdigit():
+                selection = slot_def["choices"][int(user_text.rstrip(".")) - 1]
 
-            # interpret user input as index
-            if message.strip().rstrip(".").isdigit():
-                number = message.strip().rstrip(".")
-                selection = slot_def["choices"][int(number)-1]
-            else:
-            # interpret user input as text
-                # for o in slot_def["choices"]:
-                #     if message.strip().lower() == o.lower():
-                #         selection = o
-                #         break
-                selection = selected_choice
-            
-
-            # If yes/no filed, map to true/false to make it more independent against language
-            choices = slot_def["choices"]
-            lower_choices = {opt.lower() for opt in choices}
-            selection_lc = selection.lower()
-            # ja and nein are mapped to true false regardless of which other choices are present
-            if {"ja", "nein"} & lower_choices and selection_lc in {"ja", "nein"}:
+            # Ja/Nein vereinheitlichen (true/false als String)
+            lc = (selection or "").strip().lower()
+            if lc in {"ja", "nein"}:
                 value = map_yes_no_to_bool(selection)
             else:
                 value = selection
-            # for choices regarding boxes
-            if check_box_condition:
-                state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name, "choices": slot_def['choices'], "check_box_condition":check_box_condition}
-            # if there is no associated checkbox in the document
-            if isinstance(target_filed_name, str):
-                state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name}
-            else:
-                state["responses"][slot_name] = {"value" : value, "target_filed_name": target_filed_name, "choices": slot_def.get("choices")}
 
-            # show hints if there are any
-            if hints:
-                # are there hints for the current input
-                if value in hints:
-                    history = utter_message_with_translation(history, hints[value], state.get('lang'))
+            payload = {"value": value, "target_filed_name": target}
+            if "choices" in slot_def:
+                payload["choices"] = slot_def["choices"]
+            if check_cond:
+                payload["check_box_condition"] = check_cond
+            state["responses"][slot_name] = payload
 
+            # Hinweise dynamisch ausspielen
+            if hints and selection in hints:
+                history = utter_message_with_translation(history, hints[selection], state.get("lang"))
 
+        # --- Text-Slot -------------------------------------------------------
+        elif slot_type == "text":
+            # ggf. nach Deutsch übersetzen
+            user_text = message or ""
+            if state.get("lang") and state["lang"] != "de":
+                user_text = translate_to_de(user_text, state["lang"])
 
-        # TEXT slot handling
-        elif slot_type== "text":
-            fn = getattr(validators, f"valid_{slot_name}", BaseValidators.valid_basic) # dynamically get a validator for the current filed if there is one
-
-            # translate to german if necessary
-            if state.get('lang') and state.get('lang') != 'de':
-                message = translate_to_de(message, state.get('lang'))
-
-            valid, reason, payload = fn(message)
-            if not valid: # if input is not valid
-                history = utter_message_with_translation(history, f"Ungültige Eingabe.\n{reason}\nBitte versuche es nocheinmal.", state.get('lang'))
+            # Feldspezifische Validierung (Fallback: Basic)
+            validate_fn = getattr(validators, f"valid_{slot_name}", BaseValidators.valid_basic)
+            is_valid, reason, normalized_value = validate_fn(user_text)
+            if not is_valid:
+                history = utter_message_with_translation(
+                    history, f"Ungültige Eingabe.\n{reason}\nBitte versuche es erneut.", state.get("lang")
+                )
                 return history, state, ""
-            elif valid and reason != "":
-                history = utter_message_with_translation(history, reason, state.get('lang'))
-            # if input is valid
-            state["responses"][slot_name] = {"value" : payload, "target_filed_name": target_filed_name}
+            if reason:  # optionale Info aus Validator
+                history = utter_message_with_translation(history, reason, state.get("lang"))
 
-            # show hints if there are any
-            if hints:
-                # are there hints for the current input
-                if message in hints:
-                    history = utter_message_with_translation(history, hints[message], state.get('lang'))
+            state["responses"][slot_name] = {"value": normalized_value, "target_filed_name": target}
 
-        # advance to next
+        # Slot abgeschlossen → UI-Direktive leeren und Index erhöhen
+        state.pop("ui", None)
         state["idx"] = cur_idx + 1
 
-        # —————————————————————————————————————————————
-        # If we have just come out of a “change slot” flow, then jump
-        # back to the original position:
-        if state.get("edit_idx") is not None and cur_idx == state["edit_idx"]:
-            # get original position and delete flag
-            resume = state.pop("resume_idx")
-            state.pop("edit_idx", None)
-            # continue
-            state["idx"] = resume
-        # —————————————————————————————————————————————
-
-    # --- Step 3: Ask next question or finish ---
+    # -----------------------------------------------------------------------
+    # 7) Nächsten Slot fragen ODER Abschluss einleiten
+    # -----------------------------------------------------------------------
     next_idx, state = next_slot_index(slots_def, state)
     if next_idx is not None:
-        next_slot_def   = slots_def[next_idx]
+        next_def = slots_def[next_idx]
 
-        state["show_upload"] = bool(next_slot_def.get("show_upload", False))
-        state["upload_label"] = next_slot_def.get("upload_label", "Dateien hochladen")
+        # Upload-Steuerung für die UI (falls Slot Upload vorsieht)
+        state["show_upload"]  = bool(next_def.get("show_upload", False))
+        state["upload_label"] = next_def.get("upload_label", "Dateien hochladen")
         state["uploaded_files"] = None
-        # translate label if nessecary
-        if state.get('lang') and state.get('lang') != 'de':
-            state["upload_label"] = translate_from_de(state["upload_label"], state.get('lang'))
+        if state.get("lang") and state["lang"] != "de":
+            state["upload_label"] = translate_from_de(state["upload_label"], state["lang"])
 
-        next_slot_name = next_slot_def["slot_name"]
-        prompt = next_slot_def.get('prompt', next_slot_def.get('description', ''))
-        # if next_slot_def["slot_type"] == "choice":
-        #     opts = next_slot_def["choices"]
-        #     opt_lines = "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(opts))
-        #     prompt += "\n" + opt_lines
-        prompt = compose_prompt_for_slot(next_slot_def)
-        history = utter_message_with_translation(history,prompt,state.get('lang'))
-    else:
-        history = utter_message_with_translation(
-            history,
-            "Vielen Dank! Das Formular ist abgeschlossen. Nachdem Sie das Formular unterschrieben haben, können Sie es hier zur elektronischen Übermittlung direkt hochladen",
-            state.get('lang')
-        )
-        print_summary(state=state, forms=FORMS)
-        state['completed'] = True                      # Download-Button jetzt sichtbar
-        state['awaiting_final_upload'] = True          # <<< NEU: Nächster Upload ist der finale
-        state['show_upload'] = True                    # Upload-Button einblenden
-        state['upload_label'] = (
-            'Unterschriebenes Formular hochladen und Vorgang abschließen.'
-            if state.get('lang', 'de') == 'de' else
-            translate_from_de('Unterschriebenes Formular hochladen und Vorgang abschließen.', state.get('lang'))
-        )
-        state["uploaded_files"] = None                 # Anzeige leeren
+        # Prompt + UI-Direktive an die Oberfläche geben
+        prompt_text = compose_prompt_for_slot(next_def)
+        history = utter_message_with_translation(history, prompt_text, state.get("lang"))
+        state["ui"] = _build_ui_for_slot(next_def)
+        return history, state, ""
+
+    # --- Alle Slots fertig → Abschlussbotschaft, PDF/Upload signalisieren ---
+    thanks = (
+        "Vielen Dank! Das Formular ist abgeschlossen. "
+        "Nachdem Sie das Formular unterschrieben haben, können Sie es hier zur elektronischen Übermittlung direkt hochladen."
+    )
+    history = utter_message_with_translation(history, thanks, state.get("lang"))
+    print_summary(state=state, forms=FORMS)
+    state["completed"] = True
+    state["awaiting_final_upload"] = True
+    state["show_upload"] = True
+    base_label_de = "Unterschriebenes Formular hochladen und Vorgang abschließen."
+    state["upload_label"] = base_label_de if (state.get("lang") == "de" or not state.get("lang")) else translate_from_de(base_label_de, state["lang"])
+    state["uploaded_files"] = None
+
     return history, state, ""
 
-
+# ---------------------------------------------------------------------------
+# UI-Beschreibung eines Slots → für Streamlit (Radio/Text + Zusatzinfos)
+# ---------------------------------------------------------------------------
+def _build_ui_for_slot(slot_def: Dict[str, Any]) -> Dict[str, Any]:
+    ui: Dict[str, Any] = {
+        "slot_name": slot_def.get("slot_name"),
+        "component": None,  # "radio" | "text_input" | ...
+        "args": {},
+        "additional_information": slot_def.get("additional_information", []),
+        "send_on_change": False,
+        "slot_description": slot_def.get("description", "")
+    }
+    stype = slot_def.get("slot_type")
+    if stype == "choice":
+        ui["component"] = "radio"
+        ui["args"] = {"label": "Bitte auswählen:", "options": slot_def.get("choices", [])}
+    elif stype == "text":
+        ui["component"] = "text_input"
+        ui["args"] = {
+            "label": slot_def.get("ui_label", "Antwort eingeben"),
+            "placeholder": slot_def.get("placeholder", "")
+        }
+    return ui

@@ -1,0 +1,158 @@
+{
+  "slots": [
+
+      {
+        "slot_name": "registered_type",
+        "slot_type": "choice",
+        "description": "Im Handels-, Genossenschafts- oder Vereinsregister, ggf. im Stiftungsverzeichnis eingetragene Rechtsform",
+        "filed_name": "txtEintragungsnameS1",
+        "prompt": "Welche **Rechtsform** möchten Sie für Ihr Unternehmen wählen?",
+        "choices": [
+          "Einzelunternehmen (Standard, auch für Kleingewerbe)",
+          "GbR",
+          "UG (haftungsbeschränkt)",
+          "GmbH",
+          "GmbH & Co. KG"
+        ],
+        "hints": {
+          "Einzelunternehmen (Standard, auch für Kleingewerbe)": "Bitte denken Sie daran, bei einem Einzelunternehmen ist es erforderlich, den vollständigen Vor- und Nachnamen des Inhabers anzugeben. Zum Beispiel:\n 1) Harzerkäsefabrik Mathias Öttl \n 2) Lukas Mürdters Betonmanufaktur.",
+          "GbR": "Bei einer GbR muss jeder Gesellschafter separat eine Gewerbeanmeldung vornehmen. **Bitte informiere die anderen Gesellschafter**"
+        },
+        "additional_information": [
+          {
+            "title": "Einzelunternehmen (Standard, auch Kleingewerbe)",
+            "body": "- Eine Person (alleiniger Inhaber)\n- Keine eigene Rechtspersönlichkeit\n- Volle persönliche Haftung mit Privatvermögen\n- Einfach & günstig zu gründen\n- Geeignet für kleinere Betriebe und Selbstständige"
+          },
+          {
+            "title": "Gesellschaft bürgerlichen Rechts (GbR)",
+            "body": "- Mindestens 2 Gesellschafter\n- Kein Mindestkapital nötig\n- Keine eigene Rechtspersönlichkeit (aber rechtsfähig)\n- Unbeschränkte, persönliche, gesamtschuldnerische Haftung\n- Sehr einfache Gründung, beliebt bei kleinen Zusammenschlüssen"
+          },
+          {
+            "title": "Unternehmergesellschaft (haftungsbeschränkt) – UG",
+            "body": "- Variante der GmbH („Mini-GmbH“)\n- Stammkapital ab 1 €\n- Haftung auf Gesellschaftsvermögen beschränkt\n- Pflicht zur Rücklagenbildung bis 25.000 € (danach Umwandlung in GmbH möglich)\n- Geringe Gründungskosten, teils weniger „seriöses“ Image als GmbH"
+          },
+          {
+            "title": "Gesellschaft mit beschränkter Haftung (GmbH)",
+            "body": "- Juristische Person mit eigener Rechtspersönlichkeit\n- Mindeststammkapital 25.000 € (mind. 12.500 € bei Gründung einzuzahlen)\n- Haftung auf Gesellschaftsvermögen beschränkt\n- Angesehen, für kleine bis große Unternehmen geeignet\n- Gründung aufwändiger und teurer als UG/GbR"
+          },
+          {
+            "title": "GmbH & Co. KG",
+            "body": "- KG mit einer GmbH als haftendem Komplementär\n- Komplementär (GmbH) haftet beschränkt; Kommanditisten haften in Höhe ihrer Einlage\n- Kombination aus Haftungsbeschränkung (GmbH) und Flexibilität/Steuer-Vorteilen der Personengesellschaft (KG)\n- Beliebt bei Familienunternehmen und Mittelstand"
+          }
+        ]
+      },
+
+    {
+      "slot_name": "registered_name",
+      "slot_type": "text",
+      "description": "Eingetragener Name des Unternehmens.",
+      "filed_name": "txtEintragungsnameS1",
+      "prompt": "Wie soll Ihr Unternehmen heißen?"
+    },
+
+    {
+      "slot_name": "hra_office",
+      "slot_type": "text",
+      "description": "Registergericht, bei dem GmbH eingetragen ist.",
+      "filed_name": "txtEintragungsortS1",
+      "prompt": "Bei welchem Registergericht liegt der Eitrag vor?"
+    },  
+    
+    {
+        "slot_name": "hra_number",
+        "slot_type": "text",
+        "description": "Nummer im Handelsregister",
+        "filed_name": "txtEintragungsortS1",
+        "prompt": "Wie lautet die im Handelsregister eingetragene Nummer."
+    }, 
+    {
+      "slot_name": "family_name",
+      "slot_type": "text",
+      "description": "Familienname; Nachname",
+      "filed_name": "txtFamiliennameS1",
+      "prompt": "Jetzt benötigen wir noch einige persönliche Angaben:\n Bitte geben Sie Ihren <strong>Familiennamen</strong> an."
+    },
+    {
+      "slot_name": "given_name",
+      "slot_type": "text",
+      "description": "Vorname(n)",
+      "filed_name": "txtVornamenS1",
+      "prompt": "Bitte geben Sie Ihren <strong>Vornamen</strong> an."
+    },
+    {
+      "slot_name": "birth_date",
+      "slot_type": "text",
+      "description": "Geburtsdatum (TT.MM.JJJJ)",
+      "filed_name": "txtGeburtsdatumS1",
+      "prompt": "Bitte geben Sie Ihr Geburtsdatum (TT.MM.JJJJ) an."
+    },
+    {
+      "slot_name": "num_representatives",
+      "slot_type": "text",
+      "description": "Zahl der gesetzlichen Vertreter (nur bei juristischen Personen)",
+      "filed_name": "txtVertreterS1",
+      "prompt": "Bitte geben Sie die Zahl der gesetzlichen Vertreter an (Geschäftsführer).",
+      "condition": {
+        "slot_name": "registered_type",
+        "slot_value": ["UG (haftungsbeschränkt)", "GmbH"]
+      },
+      "additional_information": [
+        {
+          "title": "Gesetzliche Vertreter (Geschäftsführer)",
+          "body": "Ein Geschäftsführer ist die Person, die eine GmbH oder UG nach außen rechtlich vertritt und die Geschäfte der Gesellschaft führt."
+        }
+      ]
+    },
+    {
+      "slot_name": "birth_place",
+      "slot_type": "text",
+      "description": "Geburtsort und -land (Ort, Land)",
+      "filed_name": "txtGeburtsortS1",
+      "prompt": "Bitte geben Sie Ihren Geburtsort und -land (Ort, Land) an."
+    },
+    
+    {
+      "slot_name": "nationality",
+      "slot_type": "choice",
+      "choices": [
+        "ja",
+        "nein"
+      ],
+      "description": "Staatsangehörigkeit(en)",
+      "filed_name": [
+        "chkStaat1S1",
+        "chkStaat2S1"
+      ],
+      "prompt": "Haben Sie die Deutsche Staatsangehörigkeit? (ja/nein)"
+    },
+    
+    {
+      "slot_name": "other_nationality",
+      "slot_type": "text",
+      "description": "Andere Staatsangehörigkeit",
+      "filed_name": "txtStaatS1",
+      "condition": {
+        "slot_name": "nationality",
+        "slot_value": "false"
+      },
+      "prompt": "Bitte geben Sie Ihre Staatsangehörigkeit an."
+    },
+
+   {
+      "slot_name": "activity",
+      "slot_type": "text",
+      "description": "Angemeldete Tätigkeit; Tätigkeit welche der in der Gewerbeanmeldung angemeldete Betrieb ausüben wird",
+      "filed_name": "txtAngemeldetS2",
+      "prompt": "Was tut Ihr Unternehmen? Bitte beschreiben Sie dieses genau. Zu allgemeine Beschreibungen (z.B. 'Handel mit Waren aller Art' oder 'Montageservice') sind nicht zulässig.",
+      "additional_information": [
+        {
+          "title": "Hinweis zur Tätigkeitsbeschreibung",
+          "body": "- Den Angaben über die Tätigkeit kommt besondere Bedeutung zu, u. a. zur Prüfung, ob die gesetzlichen Voraussetzungen für den Betrieb erfüllt sind.\n- Der Gegenstand der Tätigkeit muss **genau** bezeichnet werden.\n- **Unzulässig** sind nur allgemein gehaltene Angaben, z. B.: *Handel mit Waren aller Art*, *Montageservice*, *Handel mit allen erlaubten Waren*.\n- Zu allgemeine Angaben erlauben weder eine statistische Einordnung noch die ordnungsgemäße Wahrnehmung von Kontroll- und Überwachungsaufgaben durch die Behörden."
+        }
+      ]
+    }
+
+  ],
+  "validators": "GewerbeanmeldungValidators",
+  "pdf_file": "pdfs/gewerbeanmeldung.pdf"
+}
