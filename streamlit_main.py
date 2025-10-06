@@ -67,14 +67,23 @@ FORMS = load_forms(
 st.set_page_config(page_title=PAGE_TITLE, page_icon=PAGE_ICON, layout="centered")
 try:
     # Optional: Nur wenn vorhanden (neuere Streamlit-Versionen)
-    st.logo(image="logo-black.png", size="large")
+    st.logo(image="logo-black.png", size="large", link="https://www.mira.vision/")
 except Exception:
     pass
+
+st.title("MVP Gewerbeanmeldungen by MIRA Vision")
 
 
 # =============================================================================
 # Debuggingfunktionen
 # =============================================================================
+def _fmt_target_field_name(x) -> str:
+    if isinstance(x, list):
+        return ", ".join(map(str, x)) if x else "∅"
+    if x in (None, "", []):
+        return "∅"
+    return str(x)
+
 def debug_print_responses_to_terminal():
     """Slot-Antworten im Terminal (stdout) ausgeben – inkl. locked & nächster offener Slot."""
     state = st.session_state.get("state", {}) or {}
@@ -189,7 +198,7 @@ def render_debug_panel():
             rows.append({
                 "slot_name": slot_name,
                 "value": val,
-                "target_filed_name": data.get("target_filed_name"),
+                "target_filed_name":  _fmt_target_field_name(data.get("target_filed_name")),
                 "locked": bool(data.get("locked", False)),
                 "has_choices": "choices" in data,
             })
@@ -256,6 +265,45 @@ def generate_filled_pdf(current_state: Dict[str, Any]) -> str:
     GenericPdfFiller(json_path=json_path).fill(output_path=pdf_path)
     return pdf_path
 
+def set_defaults(state: Dict) -> None:
+    """
+    Setzt sinnvolle Default-Werte für Slots, falls diese noch NICHT gefüllt sind.
+    Überschreibt niemals bereits vorhandene Antworten.
+    """
+    responses = state.setdefault("responses", {})
+
+    # Beispiel: Geschlecht → "ohne Angabe"
+    if not responses.get("sex") or responses["sex"].get("value") in (None, ""):
+        responses["sex"] = {
+            "value": "ohne Angabe",
+            "target_filed_name": [
+                "chkGeschlecht1S1",
+                "chkGeschlecht2S1",
+                "chkGeschlecht3S1",
+                "chkGeschlecht4S1",
+            ],
+            "choices": ["männlich", "weiblich", "divers", "ohne Angabe"],
+            # optional: locked steuert, ob der Slot später noch überschreibbar ist
+            "locked": False,
+        }
+
+def apply_defaults_if_needed() -> None:
+    """
+    Wendet set_defaults genau EINMAL für das aktuell gewählte Formular an.
+    (Wenn form_type wechselt, werden Defaults erneut einmalig gesetzt.)
+    """
+    s = st.session_state.get("state") or {}
+    form_key = s.get("form_type")
+    if not form_key:
+        return
+
+    if st.session_state.get("_defaults_applied_for") == form_key:
+        return  # schon gemacht
+
+    set_defaults(s)
+    st.session_state["_defaults_applied_for"] = form_key
+
+
 # =============================================================================
 # Hilfsfunktionen, Nachrichten Ausgabe
 # =============================================================================
@@ -268,43 +316,6 @@ def stream_assistant_text(full_text: str, delay_seconds: float = 0.01) -> None:
         buffer.append(character)
         placeholder.markdown("".join(buffer))
         time.sleep(delay_seconds)
-
-# def assistant_msg_then_next_slot(msg_text: str, *, delay_seconds: float = 0.01) -> None:
-#     """
-#     1) Streamt eine Abschluss-/Bestätigungsnachricht,
-#     2) hängt sie in die History,
-#     3) startet den Bot-Turn (nächster Slot-Prompt) und
-#     4) streamt die neuen Assistenten-Nachrichten (Slot-Prompts),
-#     5) rerun für UI-Widgets.
-#     """
-#     # (1) sofort sichtbar streamen
-#     stream_assistant_text(msg_text, delay_seconds=delay_seconds)
-
-#     # (2) in die History übernehmen
-#     st.session_state.history.append(("assistant", msg_text))
-
-#     # (3) Bot ohne User-Text -> erzeugt nächsten Slot-Prompt
-#     prev_len = len(st.session_state.history)
-#     new_history, new_state, _ = chatbot_fn(
-#         None, st.session_state.history, st.session_state.state
-#     )
-#     st.session_state.history = new_history
-#     st.session_state.state = new_state
-
-#     # (4) die NEUEN Assistenten-Nachrichten (Slot-Prompts) streamen
-#     stream_new_assistant_messages(prev_len, delay_seconds=delay_seconds)
-
-#     # (5) rerun, damit ggf. das Slot-Widget (state["ui"]) gerendert wird
-#     st.rerun()
-
-
-# def stream_new_assistant_messages(prev_len: int, delay_seconds: float = 0.01) -> None:
-#     """
-#     Streamt alle neuen Assistenten-Nachrichten seit prev_len.
-#     """
-#     for message in st.session_state.history[prev_len:]:
-#         if role_of(message) == "assistant":
-#             stream_assistant_text(content_of(message), delay_seconds=delay_seconds)
 
 def stream_new_assistant_messages(prev_len: int, delay_seconds: float = 0.01) -> None:
     for message in st.session_state.history[prev_len:]:
@@ -632,6 +643,8 @@ def render_shortcut_wizard_ui() -> None:
     sstate = st.session_state.state or {}
     if sstate.get("active_wizard") != "shortcut_wizard":
         return
+    
+    apply_defaults_if_needed()
 
     handles = sstate.get("wizard_handles") or {}
     wiz: ShortCutWizard = handles.get("shortcut_wizard")
@@ -722,6 +735,22 @@ def render_shortcut_wizard_ui() -> None:
 
     # d) Review: Data Editor
     if phase == "review":
+
+        wiz.state.extracted["num_representatives"] = len(wiz.state.extracted["ceo"])
+
+        df_to_dict_column_names = {
+            "authority":"Registergericht",
+            "hra_number":"Registernummer",
+            "company_name":"Name des Unternehmens",
+            "legal_type":"Rechtsform",
+            "address":"Adresse",
+            "activity":"Tätigkeit",
+            "ceo":"Geschäftsleitung",
+            "num_representatives":"Anzahl Geschäftsführer"
+        }
+
+        dict_column_names_to_df_names = {v:k for k,v in df_to_dict_column_names.items()}
+
         with st.chat_message("assistant"):
             st.markdown("### Erkannte Daten")
             flat = (wiz.state.extracted or {}).copy()
@@ -739,7 +768,9 @@ def render_shortcut_wizard_ui() -> None:
                 flat["ceo"] = " | ".join([_row_to_str(r) for r in flat["ceo"]])
 
             df = pd.DataFrame([flat])
+            df.rename(df_to_dict_column_names,axis=1,inplace=True)
             edited_df = st.data_editor(df, num_rows="fixed", key="scw_editor")
+            edited_df.rename(dict_column_names_to_df_names, axis=1, inplace=True)
             edited = edited_df.to_dict(orient="records")[0]
 
             # CEO: zurückwandeln zu Liste[Dict] im Schema der Name-Klasse
@@ -829,6 +860,8 @@ def render_shortcut_wizard_ui() -> None:
                 # assistant_msg_then_next_slot("Alles klar – die Betriebsstättenanschrift erfassen wir separat. ✅")
                 emit_and_advance("Alles klar – die Betriebsstättenanschrift erfassen wir separat. ✅")
 
+    
+
 # =============================================================================
 # Hauptablauf
 # =============================================================================
@@ -847,6 +880,8 @@ def main() -> None:
         }  # immer Dict, niemals None
     if "history" not in st.session_state:
         st.session_state.history = []
+
+    # apply_defaults_if_needed()
 
     # ---------- Start-Turn: Begrüßung/Sprachauswahl vom Bot ----------
     if "app_started" not in st.session_state:
