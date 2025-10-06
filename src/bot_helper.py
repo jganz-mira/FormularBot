@@ -453,7 +453,7 @@ class HRA(BaseModel):
 def extract_information_HRA_info_from_img(img)->Dict:
     extracted_text = pytesseract.image_to_string(img,lang='deu')
     # post processing with llm
-    system_prompt = (f"Du bist ein hochpräzises Texextraktionsmodell welches aus einem OCR string eines Bildes Informationen extrahiert. Extrahiere aus dem folgenden Str:\n"
+    system_prompt = (f"Du bist ein hochpräzises Textexraktionsmodell welches aus einem OCR string eines Bildes Informationen extrahiert. Extrahiere aus dem folgenden Str:\n"
                  "Den Namen des Registergerichts / Handelsregister (authority), die Handelsregisternummer (HRA), den Namen der Firma (company_name), die Geschäftsform (legal_type) (GmbH, GDR, etc.), die Adresse des Sitzes/Niederlassung/Geschäftsanschrift (address), den Gegenstand des Unternehmens (activity), den Nachnamen(family_name), Vornamen(given_name) (im Text findest du immer Nachname, Vorname, Wohnort, Geburtsdatum),  Wohnort (city) und das Geburtsdatum (birthdate)(Nur das Datum im Format: TT.MM.JJJJ) des Geschäftsführers (CEO) (lege diese angeben in einer json ab.).\n"
                  "Halte dich strikt an das JSON Format, erfinde unter keinen Umständen Angaben. Falls eine Angabe fehlt, lass das entsprechende Feld leer.")
 
