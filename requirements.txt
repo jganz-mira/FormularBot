@@ -6,3 +6,4 @@ pydantic
 pypdf
 pytesseract
 requests
+cryptography
