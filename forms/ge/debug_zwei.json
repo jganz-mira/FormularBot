@@ -70,38 +70,46 @@
       "slot_type": "text",
       "description": "Familienname; Nachname",
       "filed_name": "txtFamiliennameS1",
-      "prompt": "Jetzt benötigen wir noch einige persönliche Angaben:\n Bitte geben Sie Ihren <strong>Familiennamen</strong> an."
+      "prompt": "Jetzt benötigen wir noch einige persönliche Angaben:\n Bitte geben Sie Ihren **Familiennamen** an."
     },
     {
       "slot_name": "given_name",
       "slot_type": "text",
       "description": "Vorname(n)",
       "filed_name": "txtVornamenS1",
-      "prompt": "Bitte geben Sie Ihren <strong>Vornamen</strong> an."
+      "prompt": "Bitte geben Sie Ihren **Vornamen** an."
     },
     {
       "slot_name": "birth_date",
-      "slot_type": "text",
+      "slot_type": "date",
       "description": "Geburtsdatum (TT.MM.JJJJ)",
       "filed_name": "txtGeburtsdatumS1",
-      "prompt": "Bitte geben Sie Ihr Geburtsdatum (TT.MM.JJJJ) an."
+      "prompt": "Bitte geben Sie Ihr Geburtsdatum (TT.MM.JJJJ) an.",
+      "format":"DD.MM.YYYY",
+      "constraints": {
+          "max_offset_days_past":36500,
+          "max_offset_days_future":0
+        }
     },
     {
       "slot_name": "num_representatives",
-      "slot_type": "text",
+      "slot_type": "number",
       "description": "Zahl der gesetzlichen Vertreter (nur bei juristischen Personen)",
       "filed_name": "txtVertreterS1",
       "prompt": "Bitte geben Sie die Zahl der gesetzlichen Vertreter an (Geschäftsführer).",
-      "condition": {
-        "slot_name": "registered_type",
-        "slot_value": ["UG (haftungsbeschränkt)", "GmbH"]
-      },
       "additional_information": [
         {
           "title": "Gesetzliche Vertreter (Geschäftsführer)",
           "body": "Ein Geschäftsführer ist die Person, die eine GmbH oder UG nach außen rechtlich vertritt und die Geschäfte der Gesellschaft führt."
         }
-      ]
+      ],
+      "placeholder":"Geben Sie die Anzahl der gesetzlichen Vertreter an.",
+      "constraints": {
+        "min_value":1,
+        "max_value":99,
+        "step":1,
+        "value":1
+      }
     },
         {
         "slot_name": "start_date",

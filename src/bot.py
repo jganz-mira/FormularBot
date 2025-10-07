@@ -80,6 +80,8 @@ def _append_user_once(history: List[Any], user_text: Optional[str]) -> List[Any]
     """
     Verhindert doppelte User-Einträge (Streamlit schreibt i. d. R. bereits in die History).
     """
+    if user_text and (isinstance(user_text, int) or isinstance(user_text, float)):
+        user_text = str(user_text)
     user_text = (user_text or "").strip()
     if not user_text:
         return history
@@ -349,7 +351,7 @@ def chatbot_fn(
                 history = utter_message_with_translation(history, hints[selection], state.get("lang"))
 
         # --- Text-Slot -------------------------------------------------------
-        elif slot_type == "text" or slot_type == "date":
+        elif slot_type in ['text','date','number']:
             # ggf. nach Deutsch übersetzen
             user_text = message or ""
             if state.get("lang") and state["lang"] != "de":
@@ -483,5 +485,25 @@ def _build_ui_for_slot(slot_def: Dict[str, Any], state) -> Dict[str, Any]:
             },
             "slot_description": slot_def.get("description", ""),
             "additional_information": slot_def.get("additional_information", []),
+        }
+    elif stype == "number":
+        existing = (state.get("responses", {}).get(slot_def["slot_name"], {}) or {}).get("value")
+        constraints = slot_def.get("constraints") or {}
+        max_value = int(constraints.get("max_value",100))
+        min_value = int(constraints.get("min_value",100))
+        step = int(constraints.get("step",1))
+        value = int(constraints.get("value",1))
+        placeholder = slot_def.get("placeholder","")
+
+        ui = {
+            "component": "number_input",
+            "slot_name": slot_def["slot_name"],
+            "args":{
+                "max_value":max_value,
+                "min_value":min_value,
+                "step":step,
+                "value":value,
+                "placeholder":placeholder
+            }
         }
     return ui

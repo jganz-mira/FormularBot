@@ -546,6 +546,24 @@ def render_slot_interaction_ui() -> None:
                 # Prompt/Nachrichten streamen wie gehabt
                 stream_new_assistant_messages(prev_len)
                 st.rerun()
+        
+        elif component_type == "number_input":
+            picked_number = st.number_input("Zahl eingeben",key=stable_key_prefix + "_number", **component_args)
+            send_clicked = st.button("Übernehmen", key=stable_key_prefix + "_send")
+            picked_number = str(picked_number)
+            if send_clicked:
+                prev_len = len(st.session_state.history)
+                new_history, new_state, _ = chatbot_fn(
+                    picked_number,  # <-- Bot bekommt weiterhin "User-Text", hier unser formatiertes Datum
+                    st.session_state.history,
+                    st.session_state.state
+                )
+                st.session_state.history = new_history
+                st.session_state.state = new_state
+
+                # Prompt/Nachrichten streamen wie gehabt
+                stream_new_assistant_messages(prev_len)
+                st.rerun()
 
         # 2) Expander: Zusatzinfos (oben) + Mini-Chat (unten)
         if additional_info:
