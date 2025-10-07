@@ -1,0 +1,8 @@
+gradio
+openai
+opencv-python
+pikepdf
+pydantic
+pypdf
+pytesseract
+requests
