@@ -1,3 +1,4 @@
 tesseract-ocr
+esseract-ocr-deu
 qpdf
 poppler-utils
