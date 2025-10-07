@@ -1,6 +1,6 @@
 gradio
 openai
-opencv-python
+opencv-python-headless
 pikepdf
 pydantic
 pypdf
