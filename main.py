@@ -49,8 +49,10 @@ PAGE_ICON = "💬"
 CHAT_INPUT_PLACEHOLDER = "Ihre Nachricht hier eingeben …"
 GREETING_TEXT = "👋 Willkommen! Ich helfe Ihnen beim Ausfüllen von Formularen. Los geht’s!"
 
-base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-forms_path = os.path.join(base_path, 'GPBot_v3/forms', 'ge')
+# base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# forms_path = os.path.join(base_path, 'GPBot_v3/forms', 'ge')
+repo_root  = Path(__file__).resolve().parent
+forms_path = (repo_root / "forms" / "ge").as_posix() 
 
 validator_map = {
     "BaseValidators": BaseValidators,

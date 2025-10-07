@@ -7,6 +7,7 @@ from typing import Optional, Tuple, List, Dict, Any
 import os
 from openai import OpenAI
 from datetime import date, timedelta, datetime
+from pathlib import Path
 
 from .validators import BaseValidators, GewerbeanmeldungValidators
 from .bot_helper import (
@@ -24,15 +25,35 @@ from gradio import ChatMessage
 # ---------------------------------------------------------------------------
 # Projekt-Setup: Formulare laden (z. B. debug_zwei.json im erwarteten Format)
 # ---------------------------------------------------------------------------
-base_path   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-forms_path  = os.path.join(base_path, 'forms', 'ge')
+# base_path   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# forms_path  = os.path.join(base_path, 'forms', 'ge')
+ROOT = Path(__file__).resolve().parents[1]           # .../formularbot
+DEFAULT_FORMS = ROOT / "forms" / "ge"
+FORMS_PATH = Path(os.environ.get("FORMS_PATH", DEFAULT_FORMS))
 
+if not FORMS_PATH.exists():
+    # Fallback-Kandidaten prüfen
+    candidates = [
+        DEFAULT_FORMS,
+        Path.cwd() / "forms" / "ge",
+        ROOT.parent / "forms" / "ge",
+    ]
+    for c in candidates:
+        if c.exists():
+            FORMS_PATH = c
+            break
+    else:
+        raise FileNotFoundError(
+            f"Kein gültiger forms-Pfad gefunden. Getestet: {[str(p) for p in candidates]}"
+        )
+    
 validator_map = {
     "BaseValidators": BaseValidators,
     "GewerbeanmeldungValidators": GewerbeanmeldungValidators(),
 }
+# FORMS = load_forms(form_path=forms_path, validator_map=validator_map)
 
-FORMS = load_forms(form_path=forms_path, validator_map=validator_map)
+FORMS = load_forms(form_path=str(FORMS_PATH), validator_map=validator_map)
 
 # ---------------------------------------------------------------------------
 # Helfer für History-Kompatibilität (tuple | dict | ChatMessage)
