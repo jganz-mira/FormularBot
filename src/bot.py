@@ -6,6 +6,7 @@
 from typing import Optional, Tuple, List, Dict, Any
 import os
 from openai import OpenAI
+from datetime import date, timedelta, datetime
 
 from .validators import BaseValidators, GewerbeanmeldungValidators
 from .bot_helper import (
@@ -265,7 +266,7 @@ def chatbot_fn(
         # Prompt + UI-Direktive an die Oberfläche geben
         prompt_text = compose_prompt_for_slot(next_def)
         history = utter_message_with_translation(history, prompt_text, state.get("lang"))
-        state["ui"] = _build_ui_for_slot(next_def)
+        state["ui"] = _build_ui_for_slot(next_def, state=state)
         return history, state, ""
 
     # -----------------------------------------------------------------------
@@ -327,7 +328,7 @@ def chatbot_fn(
                 history = utter_message_with_translation(history, hints[selection], state.get("lang"))
 
         # --- Text-Slot -------------------------------------------------------
-        elif slot_type == "text":
+        elif slot_type == "text" or slot_type == "date":
             # ggf. nach Deutsch übersetzen
             user_text = message or ""
             if state.get("lang") and state["lang"] != "de":
@@ -367,7 +368,7 @@ def chatbot_fn(
         # Prompt + UI-Direktive an die Oberfläche geben
         prompt_text = compose_prompt_for_slot(next_def)
         history = utter_message_with_translation(history, prompt_text, state.get("lang"))
-        state["ui"] = _build_ui_for_slot(next_def)
+        state["ui"] = _build_ui_for_slot(next_def, state=state)
         return history, state, ""
 
     # --- Alle Slots fertig → Abschlussbotschaft, PDF/Upload signalisieren ---
@@ -389,7 +390,30 @@ def chatbot_fn(
 # ---------------------------------------------------------------------------
 # UI-Beschreibung eines Slots → für Streamlit (Radio/Text + Zusatzinfos)
 # ---------------------------------------------------------------------------
-def _build_ui_for_slot(slot_def: Dict[str, Any]) -> Dict[str, Any]:
+def _parse_ddmmyyyy_to_date(s: str) -> date | None:
+    try:
+        return datetime.strptime(s, "%d.%m.%Y").date()
+    except Exception:
+        return None
+    
+def _coerce_str_date(value: str | date | None) -> str:
+    """Bringt einen Wert in 'TT.MM.JJJJ'-Stringform (für PDF/State)."""
+    if isinstance(value, date):
+        return value.strftime("%d.%m.%Y")
+    if isinstance(value, str) and value.strip():
+        # akzeptiere bereits TT.MM.JJJJ
+        d = _parse_ddmmyyyy_to_date(value)
+        if d:
+            return d.strftime("%d.%m.%Y")
+        # akzeptiere ISO 'YYYY-MM-DD'
+        try:
+            d = datetime.strptime(value, "%Y-%m-%d").date()
+            return d.strftime("%d.%m.%Y")
+        except Exception:
+            pass
+    return ""
+    
+def _build_ui_for_slot(slot_def: Dict[str, Any], state) -> Dict[str, Any]:
     ui: Dict[str, Any] = {
         "slot_name": slot_def.get("slot_name"),
         "component": None,  # "radio" | "text_input" | ...
@@ -407,5 +431,36 @@ def _build_ui_for_slot(slot_def: Dict[str, Any]) -> Dict[str, Any]:
         ui["args"] = {
             "label": slot_def.get("ui_label", "Antwort eingeben"),
             "placeholder": slot_def.get("placeholder", "")
+        }
+    elif stype == "date":
+        # bestehender Wert (falls vorhanden) in date für das Widget umwandeln
+        existing = (state.get("responses", {}).get(slot_def["slot_name"], {}) or {}).get("value")
+        # existing kann str "TT.MM.JJJJ" / "YYYY-MM-DD" oder None sein
+        existing_date = _parse_ddmmyyyy_to_date(existing) or (
+            datetime.strptime(existing, "%Y-%m-%d").date() if isinstance(existing, str) and len(existing) == 10 and existing[4] == "-" else None
+        )
+
+        # optionale Grenzen aus JSON
+        constraints = slot_def.get("constraints") or {}
+        max_past = int(constraints.get("max_offset_days_past", 3650))  # default 10 Jahre
+        max_future = int(constraints.get("max_offset_days_future", 3650))
+
+        today = date.today()
+        min_value = today - timedelta(days=max_past) if max_past >= 0 else None
+        max_value = today + timedelta(days=max_future) if max_future >= 0 else None
+
+        ui = {
+            "slot_name": slot_def["slot_name"],
+            "component": "date_input",
+            "args": {
+                "label": "Datum",
+                # value darf None sein (leeres Widget), sonst date
+                "value": existing_date,         # Streamlit nimmt date|None
+                "min_value": min_value,
+                "max_value": max_value,
+                "help": slot_def.get("description", ""),
+            },
+            "slot_description": slot_def.get("description", ""),
+            "additional_information": slot_def.get("additional_information", []),
         }
     return ui

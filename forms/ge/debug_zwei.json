@@ -103,6 +103,18 @@
         }
       ]
     },
+        {
+        "slot_name": "start_date",
+        "slot_type": "date",
+        "description": "Datum des Beginns der angemeldeten Tätigkeit (TT.MM.JJJJ)",
+        "filed_name": "txtBeginnS2",
+        "prompt": "Wann werden Sie, bzw. wann haben Sie mit der anzumeldenden Tätigkeit begonnen? Bitte geben Sie das genaue Datum (TT.MM.JJJJ) an. Das Datum darf maximal einen Monat in der Vergangenheit liegen.",
+        "format":"DD.MM.YYYY",
+        "constraints": {
+          "max_offset_days_past":31,
+          "max_offset_days_future":365
+        }
+      },
     {
       "slot_name": "birth_place",
       "slot_type": "text",
