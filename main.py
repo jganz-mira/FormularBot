@@ -37,7 +37,7 @@ from src.bot import chatbot_fn
 from src.bot_helper import save_responses_to_json, load_forms
 from src.pdf_backend import GenericPdfFiller
 from src.translator import final_msgs, download_button_msgs, files_msgs, pdf_file_msgs
-from src.wizards import ShortCutWizard, ShortCutWizardState, IDCardWizard, IDCardWizardState
+from src.wizards import ShortCutWizard, ShortCutWizardState, IDCardWizard, IDCardWizardState, PreRegistrationWizardState, PreRegistrationWizard
 from src.bot_helper import extract_information_HRA_info_from_img, extract_information_id_card
 from src.validators import BaseValidators, GewerbeanmeldungValidators
 
@@ -871,6 +871,17 @@ def render_shortcut_wizard_ui() -> None:
                     ])
                 flat["ceo"] = " | ".join([_row_to_str(r) for r in flat["ceo"]])
 
+            # adresse auslesen
+            def _to_str(row: dict) -> str:
+                return ", ".join([
+                    str(row.get("street_name", "")).strip(),
+                    str(row.get("street_number", "")).strip(),
+                    str(row.get("postalcode", "")).strip(),
+                    str(row.get("city","")).strip()
+                ])
+            address = flat.get("address")
+            flat["address"] = _to_str(address)
+
             df = pd.DataFrame([flat])
             df.rename(df_to_dict_column_names,axis=1,inplace=True)
             edited_df = st.data_editor(df, num_rows="fixed", key="scw_editor")
@@ -1113,6 +1124,58 @@ def render_idcard_wizard_ui() -> None:
                 st.rerun()
 
 # =============================================================================
+# PreRegistrationWizard
+# =============================================================================
+def render_prereg_wizard_ui() -> None:
+    sstate = st.session_state.state or {}
+    if sstate.get("active_wizard") != "prereg_wizard":
+        return
+
+    # Handle holen/erstellen
+    handles = sstate.get("wizard_handles") or {}
+    wiz: PreRegistrationWizard = handles.get("prereg_wizard")
+    if not wiz:
+        wiz = PreRegistrationWizard(PreRegistrationWizardState(lang_code=sstate.get("lang") or "de"))
+        handles["prereg_wizard"] = wiz
+        st.session_state.state["wizard_handles"] = handles
+
+    msg, done, _ = wiz.step(None)
+    emit_assistant(msg, stream=True, guard_id=f"prereg:{wiz.state.phase}", stop_after=False)
+
+    # Slots-Definitionen der gewählten Form (für Choices)
+    form_key = st.session_state.state.get("form_type")
+    slots_def = (FORMS.get(form_key) or {}).get("slots", [])
+
+    # Helper: Choices für registration_for aus JSON lesen (Fallback auf Standardliste)
+    reg_choices = None
+    for s in slots_def:
+        if isinstance(s, dict) and s.get("slot_name") == "registration_for":
+            reg_choices = s.get("choices")
+            break
+    if not reg_choices:
+        reg_choices = ["Hauptniederlassung", "Zweigniederlassung", "Unselbständige Zweigstelle"]
+
+    phase = wiz.state.phase
+
+    # 1) Startdatum
+    if phase == "ask_start":
+        with st.chat_message("assistant"):
+            picked = st.date_input("Startdatum", key="prereg_start_date", format = "DD/MM/YYYY")
+            if st.button("Datum übernehmen", key="prereg_take_date"):
+                wiz.state.edited["start_date"] = _format_date_ddmmyyyy(picked) if isinstance(picked, _date) else ""
+                wiz.state.phase = "ask_reg_for"
+                st.rerun()
+
+    # 2) Art der Niederlassung
+    if phase == "ask_reg_for":
+        with st.chat_message("assistant"):
+            choice = st.radio("Art der Niederlassung", options=reg_choices, key="prereg_reg_for")
+            if st.button("Angaben übernehmen", key="prereg_finish"):
+                wiz.state.edited["registration_for"] = str(choice or "").strip()
+                wiz.apply_mapping_and_finish(st.session_state.state, slots_def)
+                emit_and_advance("Alles klar 👍. Ich habe die Angaben übernommen, weiter gehts!")
+
+# =============================================================================
 # Hauptablauf
 # =============================================================================
 
@@ -1180,6 +1243,7 @@ def main() -> None:
     # ---------- Kontextbezogene UI-Elemente ----------
     render_slot_interaction_ui()     # Widget + Zusatzinfos + Mini-Chat
     render_completion_ui()           # PDF-Download + Upload-Mockup (bei completed)
+    render_prereg_wizard_ui()
     render_shortcut_wizard_ui()
     render_idcard_wizard_ui()
     # ---------- Print alle bisher erfassten Felder -----

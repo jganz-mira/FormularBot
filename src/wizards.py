@@ -898,14 +898,17 @@ class ShortCutWizard:
 
         # --- 2) Adressen --------------------------------------------------------
         if _has("representative_address"):
-            _set("representative_address", filed_names.get("representative_address"), _val_from_edited("address"))
-
-        if _has("main_branch_address"):
             if is_branch_same:
-                _set("main_branch_address", filed_names.get("main_branch_address"), _val_from_edited("address"))
+                if _has("representative_address"):
+                    _set("representative_address", filed_names.get("representative_address"), _val_from_edited("address"))
+                    if _has("main_branch_address"):
+                        _set("main_branch_address",filed_names.get("main_branch_address"), "")
             else:
-                # leer lassen → Bot fragt normal weiter
-                _set("main_branch_address", "")
+                if _has("main_branch_address"):
+                    _set("main_branch_address", filed_names.get("main_branch_address"), _val_from_edited("address"))
+            # else:
+            #     # leer lassen → Bot fragt normal weiter
+            #     _set("main_branch_address", "")
 
         # --- 3) CEOs: erster Eintrag in Personenfelder + Anzahl -----------------
         # Erwartet: edited["ceo"] als List[Dict] mit Keys: family_name, given_name, city, birth_date
@@ -1079,3 +1082,72 @@ class IDCardWizard:
 
         # Signal: der Bot soll den nächsten offenen Slot sofort fragen
         app_state["awaiting_first_slot_prompt"] = True
+
+@dataclass
+class PreRegistrationWizardState:
+    turns: int = 0
+    lang_code: Optional[str] = None
+    phase: str = "ask_start"   # ask_start -> ask_reg_for -> done
+    edited: Dict[str, Any] = field(default_factory=dict)
+
+class PreRegistrationWizard:
+    """
+    Kleiner Wizard vor dem Shortcut:
+      1) Startdatum (start_date)
+      2) Art der Niederlassung (registration_for)
+    Danach: -> ShortcutWizard
+    """
+    def __init__(self, state: Optional[PreRegistrationWizardState] = None):
+        self.state = state or PreRegistrationWizardState()
+
+    def step(self, user_text: Optional[str]) -> tuple[str, bool, Optional[str]]:
+        s = self.state
+        lang = s.lang_code or "de"
+
+        if s.phase == "ask_start":
+            s.turns += 1
+            return ("Wann **wirst** oder wann **hast** du mit deiner Tätigkeit begonnen?", False, lang)
+
+        if s.phase == "ask_reg_for":
+            return ("Für was für eine **Art von Niederlassung**, möchtest du die Anmeldung vornehmen?", False, lang)
+
+        if s.phase == "done":
+            return ("Alles klar 👍. Ich habe die Angaben übernommen, weiter gehts!", True, lang)
+
+        return ("…", False, lang)
+
+    def apply_mapping_and_finish(self, app_state: dict, slots_def: List[dict]) -> None:
+        """
+        Übernimmt start_date und registration_for in app_state['responses'].
+        Schaltet anschließend auf den ShortcutWizard um.
+        """
+        if not isinstance(app_state, dict):
+            return
+
+        responses = app_state.setdefault("responses", {})
+        slot_names = {s.get("slot_name") for s in (slots_def or []) if isinstance(s, dict) and s.get("slot_name")}
+        filed_names = {s.get("slot_name"): s.get("filed_name") for s in (slots_def or []) if isinstance(s, dict) and s.get("slot_name")}
+        slot_by_name = {s.get("slot_name"): s for s in (slots_def or []) if isinstance(s, dict) and s.get("slot_name")}
+
+        def _has(slot: str) -> bool:
+            return slot in slot_names
+
+        def _set(slot: str, value):
+            if not _has(slot):
+                return
+            payload = {"value": value, "target_filed_name": filed_names.get(slot)}
+            # Falls der Slot Choices hat (Checkboxen/Radio), mitgeben → PDF-Check passt dann robust
+            if "choices" in (slot_by_name.get(slot) or {}):
+                payload["choices"] = slot_by_name[slot]["choices"]
+            responses[slot] = payload
+
+        edited = dict(self.state.edited or {})
+        if _has("start_date") and edited.get("start_date"):
+            _set("start_date", edited["start_date"])
+
+        if _has("registration_for") and edited.get("registration_for"):
+            _set("registration_for", edited["registration_for"])
+
+        # → jetzt direkt den ShortcutWizard aktivieren
+        app_state["active_wizard"] = "shortcut_wizard"
+        app_state["wizard_handles"] = None

@@ -1,0 +1,566 @@
+{
+  "slots": [
+    {
+      "slot_name": "registered_type",
+      "slot_type": "choice",
+      "description": "Im Handels-, Genossenschafts- oder Vereinsregister, ggf. im Stiftungsverzeichnis eingetragene Rechtsform",
+      "filed_name": "txtEintragungsnameS1",
+      "prompt": "Welche **Rechtsform** möchten Sie für Ihr Unternehmen wählen?",
+      "choices": [
+        "Einzelunternehmen (Standard, auch für Kleingewerbe)",
+        "GdR",
+        "UG (haftungsbeschränkt)",
+        "GmbH",
+        "GmbH & Co. KG"
+      ],
+      "hints":{
+        "Einzelunternehmen (Standard, auch für Kleingewerbe)": "Bitte denken Sie daran, bei einem Einzelunternehmen ist es erforderlich, den vollständigen Vor- und Nachnamen des Inhabers anzugeben. Zum Beispiel:\n 1) Harzerkäsefabrik Mathias Öttl \n 2) Lukas Mürdters Betonmanufaktur.",
+        "GdR":"Bei einer GbR muss jeder Gesellschafter seperat eine Gewerbeanmeldung vornehmen. **Bitte informiere die anderen Gesellschafter**"
+      },
+      "additional_information": [
+        "## Zusätzliche Informationen\n\n<details>\n<summary><strong>Einzelunternehmen (Standard, auch Kleingewerbe)</strong></summary>\n\n- Eine Person (alleiniger Inhaber)\n- Keine eigene Rechtspersönlichkeit\n- Volle persönliche Haftung mit Privatvermögen\n- Einfach & günstig zu gründen\n- Geeignet für kleinere Betriebe und Selbstständige\n</details>\n\n<details>\n<summary><strong>Gesellschaft bürgerlichen Rechts (GbR)</strong></summary>\n\n- Mindestens 2 Gesellschafter\n- Kein Mindestkapital nötig\n- Keine eigene Rechtspersönlichkeit (aber rechtsfähig)\n- Unbeschränkte, persönliche, gesamtschuldnerische Haftung\n- Sehr einfache Gründung, beliebt bei kleinen Zusammenschlüssen\n</details>\n\n<details>\n<summary><strong>Unternehmergesellschaft (haftungsbeschränkt) – UG</strong></summary>\n\n- Variante der GmbH („Mini-GmbH“)\n- Stammkapital ab 1 €\n- Haftung auf Gesellschaftsvermögen beschränkt\n- Pflicht zur Rücklagenbildung bis 25.000 € (danach Umwandlung in GmbH möglich)\n- Geringe Gründungskosten, teils weniger „seriöses“ Image als GmbH\n</details>\n\n<details>\n<summary><strong>Gesellschaft mit beschränkter Haftung (GmbH)</strong></summary>\n\n- Juristische Person mit eigener Rechtspersönlichkeit\n- Mindeststammkapital 25.000 € (mind. 12.500 € bei Gründung einzuzahlen)\n- Haftung auf Gesellschaftsvermögen beschränkt\n- Angesehen, für kleine bis große Unternehmen geeignet\n- Gründung aufwändiger und teurer als UG/GbR\n</details>\n\n<details>\n<summary><strong>GmbH &amp; Co. KG</strong></summary>\n\n- KG mit einer GmbH als haftendem Komplementär\n- Komplementär (GmbH) haftet beschränkt; Kommanditisten haften in Höhe ihrer Einlage\n- Kombination aus Haftungsbeschränkung (GmbH) und Flexibilität/Steuer-Vorteilen der Personengesellschaft (KG)\n- Beliebt bei Familienunternehmen und Mittelstand\n</details>"
+      ]
+    },
+
+    {
+      "slot_name": "registered_name",
+      "slot_type": "text",
+      "description": "Eingetragener Name des Unternehmens.",
+      "filed_name": "txtEintragungsnameS1",
+      "prompt": "Wie soll Ihr Unternehmen heißen?"
+    },
+
+    {
+      "slot_name": "start_date",
+      "slot_type": "text",
+      "description": "Datum des Beginns der angemeldeten Tätigkeit (TT.MM.JJJJ)",
+      "filed_name": "txtBeginnS2",
+      "prompt": "Wann werden Sie, bzw. wann haben Sie mit der anzumeldenden Tätigkeit begonnen? Bitte geben Sie das genaue Datum (TT.MM.JJJJ) an. Das Datum darf maximal einen Monat in der Vergangenheit liegen."
+    },
+
+    {
+      "slot_name": "business_type",
+      "slot_type": "choice",
+      "choices": [
+        "Industrie",
+        "Handwerk",
+        "Handel",
+        "Sonstiges"
+      ],
+      "description": "Art des angemeldeten Betriebs",
+      "filed_name": [
+        "chkArtBetrieb1S2",
+        "chkArtBetrieb2S2",
+        "chkArtBetrieb3S2",
+        "chkArtBetrieb4S2"
+      ],
+      "prompt": "Was für eine Art von Betrieb möchten Sie anmelden?",
+      "additional_information": [
+        "## Zusätzliche Informationen\n\n <details>Diese grobe Zuordnung des Gewerbebetriebes richtet sich u. a. auch nach dem Schwerpunkt der unternehmerischen Tätigkeit. Wenn Sie industriell Waren produzieren, wählen Sie hier - <strong>Industrie</strong> - aus. Üben Sie ein Gewerbe aus, welches in Anlage <a href=\"https://www.gesetze-im-internet.de/hwo/anlage_a.html \" target=\"_blank\">A</a> oder <a href=\"https://www.gesetze-im-internet.de/hwo/anlage_b.html \" target=\"_blank\">B</a> der Handwerksordnung aufgeführt ist, wäre - <strong>Handwerk</strong> - auszuwählen. Steht der Handel mit Waren im Mittelpunkt Ihrer Tätigkeit wählen Sie - <strong>Handel</strong> - aus. Die Erbringung von Dienstleistungen aller Art (Finanzdienstleistungen, Solarien, hauswirtschaftliche Dienstleistungen oder Gaststätten) wird in der Kategorie - <strong>Sonstiges</strong> - geführt.</details>"
+      ],
+      "hints":{
+      "Handel":"<strong>Hinweis:</strong> Bei der volgenden Angaben zu der Tätigkeit, welche Sie anmelden möchten, sollte spezifiziert werden, ob Sie den Handel <strong>vor Ort in einem Geschäft</strong> oder über einen <strong>Versandhandel</strong> betreiben und welche <strong>Produktgruppen (z.B. Elektrogeräte)</strong> Sie handeln.\n\n"}
+    },
+
+    {
+      "slot_name": "activity",
+      "slot_type": "text",
+      "description": "Angemeldete Tätigkeit; Tätigkeit welche der in der Gewerbeanmeldung angemeldete Betrieb ausüben wird",
+      "filed_name": "txtAngemeldetS2",
+      "prompt": "Was tut Ihr Unternehmen? Bitte beschreiben Sie dieses genau. Zu allgemeine Beschreibungen (z.B. 'Handel mit Waren aller Art' oder 'Montageservice') sind nicht zulässig.",
+      "additional_information": [
+        "## Zusätzliche Informationen\n\n<details>Den Angaben über die Tätigkeit des Betriebes kommen besondere Bedeutung auch für die Beurteilung der Frage zu, ob die gesetzlichen Voraussetzungen für den Betrieb des betreffenden Gewerbes erfüllt sind. Der Gegenstand der angemeldeten Tätigkeit muss daher genau bezeichnet werden. Nicht zulässig sind nur allgemein gehaltene Angaben, wie z. B. <strong>Handel mit Waren aller Art, Montageservice, Handel mit allen erlaubten Waren</strong>. Nach diesen Angaben ist weder eine statistische Einordnung des Betriebes möglich noch können die zuständigen Behörden ihren gesetzlich vorgeschriebenen Kontroll- und Überwachungsaufgaben nachkommen.</details>"
+      ]
+    },
+
+    {
+      "slot_name": "registration_for",
+      "slot_type": "choice",
+      "choices": [
+        "Hauptniederlassung",
+        "Zweigniederlassung",
+        "unselbstständige Zweigstelle",
+        "Reisegewerbe"
+      ],
+      "description": "Art der Niederlassung, welche Sie anmelden möchten",
+      "filed_name": [
+        "chkErstattung1S2",
+        "chkErstattung2S2",
+        "chkErstattung3S2",
+        "chkErstattung4S2"
+      ],
+      "prompt": "Handelt es bei dem anzumeldenden Betrieb um eine Hauptniederlassung, Zweigniederlassung, unselbstständige Zweigstelle oder ein Reisegewerbe?",
+      "additional_information": ["## Zusätzliche Informationen\n\n<details><summary><strong>Hauptniederlassung (HNL)</strong></summary> Die Hauptniederlassung ist der Mittelpunkt des Geschäfts eines stehenden Gewerbes. Bei Personengesellschaften und juristischen Personen liegt sie am Sitz des Unternehmens (§ 106 Abs. 2 HGB, § 3 Abs. 1 Nr. 1 GmbHG). Auch wenn es keine weiteren Niederlassungen oder Zweigstellen gibt, spricht man von einer Hauptniederlassung. Sie kann sogar in der Wohnung des Gewerbetreibenden liegen (z. B. bei einem Makler). Eine Hauptniederlassung muss außerdem auch dann angezeigt werden, wenn sie nur zur Leitung von Zweigniederlassungen oder unselbstständigen Zweigstellen dient. </details>\n\n<details><summary><strong>Zweigniederlassung (ZWNL)</strong></summary> Eine Zweigniederlassung liegt nach § 13 HGB vor, wenn ein Betrieb eine eigene Organisation, eigene Betriebsmittel und eine gesonderte Buchführung hat. Die Leitungsperson muss befugt sein, Geschäfte eigenständig abzuschließen und umzusetzen. Für jede Zweigniederlassung muss eine eigene Anzeige bei der zuständigen Behörde vor Ort eingereicht werden. </details>\n\n<details><summary><strong>Unselbstständige Zweigstelle (ZWST)</strong></summary> Eine unselbstständige Zweigstelle ist jede feste Einrichtung vor Ort, die für das Gewerbe genutzt wird (z. B. ein Auslieferungslager). Baustellen, die nur für ein Bauvorhaben eingerichtet werden, gelten in der Regel nicht als unselbstständige Zweigstelle. Eine Ausnahme können z. B. Baubüros auf großen Baustellen sein, wenn dort direkt Geschäfte mit Dritten abgewickelt werden. Für jede unselbstständige Zweigstelle muss eine eigene Anzeige bei der zuständigen Behörde vor Ort eingereicht werden. </details>\n\n<details><summary><strong>Reisegewerbe</strong></summary> Ein Reisegewerbe ist ein Gewerbe, das ohne feste Niederlassung oder außerhalb der Räume einer gewerblichen Niederlassung ausgeübt wird, oder ohne vorherige Bestellung Waren feilbietet oder Bestellungen aufsucht. Beispiele sind Straßenhändler, Schausteller oder Vertreter, die ohne Terminvereinbarung unterwegs sind. Für ein Reisegewerbe ist in der Regel eine Reisegewerbekarte erforderlich. </details>"
+      ]
+    },
+
+    {
+      "slot_name": "representative_address",
+      "slot_type": "text",
+      "description": "Anschrift der Betriebsstätte (Straße, Hausnummer, PLZ, Ort)",
+      "filed_name": "txtBetriebS1",
+      "prompt": "Wie lautet die Adresse der Betriebsstätte, für welche Sie die Gewerbeanmeldung vornhemen möchten (Straße, Hausnummer, Postleitzahl, Ort)?",
+      "additional_information": ["## Zusätzliche Informationen\n\n<details>Betriebsstätte ist der Ort, an dem ein Gewerbe dauerhaft ausgeübt wird – zum Beispiel die Hauptniederlassung, eine Zweigniederlassung oder eine unselbstständige Zweigstelle.</details>"
+      ]
+    },
+
+    {
+      "slot_name": "rep_phone",
+      "slot_type": "text",
+      "description": "Telefon der Betriebsstätte",
+      "filed_name": "txtTel2S1",
+      "prompt": "Falls vorhanden, geben Sie bitte eine Telefonnummer an, unter der wir die Betriebsstätte erreichen können. **Optional, zum Überspringen Enter drücken.**"
+    },
+
+    {
+      "slot_name": "rep_email",
+      "slot_type": "text",
+      "description": "E-Mail der Betriebsstätte",
+      "filed_name": "txtMail2S1",
+      "prompt": "Falls vorhanden, geben Sie bitte eine E-Mail-Adresse an, unter der wir die Betriebsstätte erreichen können. **Optional, zum Überspringen Enter drücken.**"
+    },
+
+    {
+      "slot_name": "main_branch_address",
+      "slot_type": "text",
+      "description": "Hauptniederlassung Anschrift",
+      "filed_name": "txtHauptS1",
+      "prompt": "Bitte geben Sie zusätzlich die Anschrift der Hauptniederlassung an (Straße, Hausnummer, Postleitzahl, Ort).",
+      "additional_information": ["## Zusätzliche Informationen\n\n<details>Wenn Sie eine <strong>Zweigstelle oder Unselbstständige Zweigstelle</strong> anmelden, dann müssen Sie zusätzlich auch die Anschrift der <strong>Hauptniederlassung</strong> angeben, auch wenn diese sich außerhalb des Zuständigkeitsbereiches der für die Anmeldung der Betriebsstätte zuständigen Behörde befindet. Zur Erinnerung: Eine Hauptniederlassung (HNL) stellt den Mittelpunkt des Geschäftsverkehrs für den betreffenden Betrieb eines stehenden Gewerbes dar, der sich bei Personengesellschaften und juristischen Personen am Sitz des Unternehmens befindet (§ 106 Abs. 2 HGB, § 3 Abs. 1 Nr. 1 GmbHG). Eine Hauptniederlassung ist auch dann gegeben, wenn daneben keine Zweigniederlassungen oder unselbständige Zweigstellen betrieben werden, sie kann auch in der Wohnung des Gewerbetreibenden (z. B. eines Maklers) liegen.</details>"],
+      "condition": {
+        "slot_name": "registration_for",
+        "slot_value": [
+        "Zweigniederlassung",
+        "unselbstständige Zweigstelle"]}    
+    
+    },
+
+    {
+      "slot_name": "main_branch_phone",
+      "slot_type": "text",
+      "description": "Tel.-Nr. der Hauptniederlassung",
+      "filed_name": "txtTel3S1",
+      "condition": {
+        "slot_name": "main_branch_address",
+        "slot_value": "not empty"
+      },
+      "prompt": "Falls vorhanden, bitte geben Sie die Telefonnummer der Hauptniederlassung an. **Optional, zum Überspringen Enter drücken.**"
+    },
+
+    {
+      "slot_name": "main_branch_email",
+      "slot_type": "text",
+      "description": "E-Mail der Hauptniederlassung",
+      "filed_name": "txtMail3S1",
+      "condition": {
+        "slot_name": "main_branch_address",
+        "slot_value": "not empty"},
+      "prompt": "Falls vorhanden, bitte geben Sie die E-Mail-Adresse der Hauptniederlassung an. **Optional, zum Überspringen Enter drücken.**"
+      },
+    
+    {
+      "slot_name": "reason",
+      "slot_type": "choice",
+      "choices": [
+        "Neugründung",
+        "Wiedereröffnung nach Verlegung aus einem anderen Meldebezirk",
+        "Übergang nach dem Umwandlungsgesetz",
+        "Wechsel der Rechtsform",
+        "Gesellschaftereintritt",
+        "Übernahme (Erbfolge/Kauf/Pacht)"
+      ],
+      "description": "Was ist der Grund für Ihren Antrag?",
+      "filed_name": [
+        "chkGrund1S2",
+        "chkGrund2S2",
+        "chkGrund3S2",
+        "chkGrund4S2",
+        "chkGrund5S2",
+        "chkGrund6S2"
+      ],
+      "prompt": "Bitte geben Sie den Grund der Neuerrichtung/Übernahme an.",
+      "additional_information": ["## Zusätzliche Informationen\n\n <details><summary><strong>Neugründung</strong></summary>\n\n- Sie melden Ihr Gewerbe erstmals an.\n- Es handelt sich nicht um eine Übernahme oder Änderung einer bestehenden Firma.</details>\n\n<details><summary><strong>Wiedereröffnung nach Verlegung aus einem anderen Meldebezirk</strong></summary>\n\n- Sie haben Ihr Gewerbe aus einem anderen Bezirk hierher verlegt.\n- Die Anmeldung erfolgt am neuen Standort.\n</details>\n\n<details>\n<summary><strong>Übergang nach dem Umwandlungsgesetz</strong></summary>\n\n- Ihr Unternehmen wird auf Basis des Umwandlungsgesetzes in eine andere Rechtsform überführt.\n- Beispiel: Verschmelzung, Spaltung oder Formwechsel.</details>\n\n<details><summary><strong>Wechsel der Rechtsform</strong></summary>\n\n- Sie ändern die Rechtsform Ihres Unternehmens.\n- Beispiel: Von Einzelunternehmen zu GmbH.</details>\n\n<details><summary><strong>Gesellschaftereintritt</strong></summary>\n\n- Ein neuer Gesellschafter tritt in eine bestehende Gesellschaft ein.\n- Dies kann zu Änderungen der Anmeldepflichten führen.</details>\n\n<details><summary><strong>Übernahme (Erbfolge/Kauf/Pacht)</strong></summary>\n\n- Sie übernehmen ein bestehendes Gewerbe.\n- Dies kann durch Kauf, Pacht oder Erbfolge erfolgen.</details>"
+      ]
+    },
+
+    {
+      "slot_name": "num_representatives",
+      "slot_type": "text",
+      "description": "Zahl der gesetzlichen Vertreter (nur bei juristischen Personen)",
+      "filed_name": "txtVertreterS1",
+      "prompt": "Bitte geben Sie die Zahl der gesetzlichen Vertreter an (Geschäftsführer).",
+      "condition": {
+        "slot_name": "registered_type",
+        "slot_value": ["UG (haftungsbeschränkt)","GmbH"]},
+      "additional_information": ["## Zusätzliche Informationen\n\n <details>Ein Geschäftsführer ist die Person, die eine GmbH oder UG nach außen rechtlich vertritt und die Geschäfte der Gesellschaft führt.</details>"
+      ]
+    },
+
+    {
+      "slot_name": "num_partners",
+      "slot_type": "text",
+      "description": "Zahl der geschäftsführenden Gesellschafter",
+      "filed_name": "txtGesellschafterS1",
+      "prompt": "Bitte geben Sie die Zahl der geschäftsführenden Gesellschafter an.",
+      "condition": {
+        "slot_name": "registered_type",
+        "slot_value": ["GdR", "GmbH & Co. KG"]},
+      "additional_information": ["## Zusätzliche Informationen\n\n <details>Ein geschäftsführender Gesellschafter ist ein Mitgesellschafter, der zugleich aktiv die Geschäftsführung und Vertretung der Gesellschaft übernimmt.</details>"
+      ]
+    },
+
+    {
+      "slot_name": "public_participation",
+      "slot_type": "choice",
+      "choices": [
+        "ja",
+        "nein",
+        "nicht bekannt"
+      ],
+      "description": "Liegt eine Beteiligung der öffentlichen Hand vor?",
+      "filed_name": [
+        "chkHand1S1",
+        "chkHand2S1",
+        "chkHand3S1"
+      ],
+      "prompt": "Liegt eine Beteiligung der öffentlichen Hand vor (ja, nein, nicht bekannt).",
+      "additional_information": ["## Zusätzliche Informationen\n\n <details>Eine Beteiligung der öffentlichen Hand liegt vor, wenn es sich um ein Unternehmen handelt, an dem Bund, Länder oder Gemeinden Kapitalanteile unmittelbar oder mittelbar halten oder bei dem Bund, Länder oder Gemeinden Stimmen im Verwaltungs-/Führungsorgan des Unternehmens innehaben.</details>"
+      ]
+    },
+
+    {
+      "slot_name": "secondary_operation",
+      "slot_type": "choice",
+      "choices": [
+        "ja",
+        "nein"
+      ],
+      "description": "Wird die Tätigkeit im Nebenerwerb betrieben?",
+      "filed_name": [
+        "chkNeben1S2",
+        "chkNeben2S2"
+      ],
+      "prompt": "Üben Sie die Tätigkeit im Nebenerwerb aus (ja, nein).",
+      "additional_information": ["## Zusätzliche Informationen\n\n <details>Nebenberuflich könnte beispielsweise zutreffen, wenn Sie während der Elternzeit ein Geschäft starten oder lediglich in den Abendstunden und am Samstag sowie Sonntag tätig sind. Wenn die Einnahmen aus dieser Arbeit über die Hälfte Ihres gesamten Einkommens betragen, spricht man von einer Hauptbeschäftigung. Bitte beachten Sie, diese Angabe dient lediglich statistischen Zwecken.</details>"
+      ]
+    },
+
+    {
+      "slot_name": "employees_none",
+      "slot_type": "choice",
+      "choices": [
+        "ja",
+        "nein"
+      ],
+      "check_box_condition": "false",
+      "description": "Werden weitere Mitarbeiter beschäftigt",
+      "filed_name": [
+        "chkZahlPersonenS2"
+      ],
+      "prompt": "Haben Sie Angestellte beim Start Ihres Gewerbes? Dazu zählen auch Familienmitglieder, oder Aushilfen."
+    },
+
+    {
+      "slot_name": "employees_full_time",
+      "slot_type": "text",
+      "description": "Zahl der Vollzeitkräfte",
+      "filed_name": "txtVollS2",
+      "condition": {
+        "slot_name": "employees_none",
+        "slot_value": "true"
+      },
+      "prompt": "Wie viele Vollzeitkräfte werden Sie beim Start Ihres Gewerbes beschäftigen?"
+    },
+
+    {
+      "slot_name": "employees_part_time",
+      "slot_type": "text",
+      "description": "Zahl der Teilzeitkräfte",
+      "filed_name": "txtTeilS2",
+      "condition": {
+        "slot_name": "employees_none",
+        "slot_value": "true"
+      },
+      "prompt": "Wie viele Teilzeitkräfte werden Sie beim Start Ihres Gewerbes beschäftigen?"
+    },
+
+    {
+      "slot_name": "permit",
+      "slot_type": "choice",
+      "choices": [
+        "ja",
+        "nein"
+      ],
+      "description": "Erlaubnis vorhanden",
+      "filed_name": [
+        "chkErlaubnis1S2",
+        "chkErlaubnis2S2"
+      ],
+      "prompt": "Für einige Berufe ist eine Erlaubnis erforderlich. Falls das bei Ihnen der Fall ist, liegt diese Erlaubnis vor? Falls ja können Sie ein Foto der Erlaubnis hochladen.",
+      "additional_information": ["## Zusätzliche Informationen\n\n <details>Eine Übersicht von Berufen, für deren Ausübung eine Erlaubnis erforderlich ist finden sie <a href=\"https://www.ihk.de/konstanz/recht-und-steuern/gewerberecht/einzelne-berufe/erlaubnispflichtigegewerbe13180-1672696 \" target=\"_blank\">hier</a>.</details>"
+      ],
+      "show_upload": true,
+      "upload_label": "Erlaubnis hochladen"
+    },
+ 
+    {
+      "slot_name": "permit_date",
+      "slot_type": "text",
+      "description": "Ausstellungsdatum der Erlaubnis",
+      "filed_name": "txtAusstellungsdat1S2",
+      "condition": {
+        "slot_name": "permit",
+        "slot_value": "true"
+      },
+      "prompt": "Wann wurde die Erlaubnis ausgestellt (TT.MM.JJJJ)?."
+    },
+
+    {
+      "slot_name": "permit_office",
+      "slot_type": "text",
+      "description": "Erteilende Behörde der Erlaubnis",
+      "filed_name": "txtAusstellungsdat1S2",
+      "condition": {
+        "slot_name": "permit",
+        "slot_value": "true"
+      },
+      "prompt": "Welche Behörde hat die Erlaubnis erteilt?"
+    },
+
+    {
+      "slot_name": "handwerkskarte",
+      "slot_type": "choice",
+      "choices": [
+        "ja",
+        "nein"
+      ],
+      "description": "Liegt eine Handwerkskarte vor?",
+      "filed_name": [
+        "chkAnlageA1S2",
+        "chkAnlageA2S2"
+      ],
+      "prompt": "Liegt eine Handwerkskarte vor?  **Falls ja können hier direkt ein Foto Ihrer Handwerkskarte hochladen.**",
+      "additional_information": [
+      "## Zusätzliche Informationen\n\n <details><img src=\"/gradio_api/file=images/handwerkskarte.jpg\" alt=\"Handwerkskarte\" style=\"max-width:100%;height:auto;margin-bottom:10px;\"/> Eine Handwerkskarte erhalten Sie üblicherweise von der für Sie zuständigen Handwerkskammer. Weitere Informationen finden Sie <a href=\"https://www.hwk-stuttgart.de/artikel/handwerksrolle-anlage-a-anlage-b-und-viele-weitere-infos-67,0,2162.html\" target=\"_blank\">hier</a>.</details>"
+      ],
+      "condition": {
+        "slot_name": "business_type",
+        "slot_value": "Handwerk"
+      },
+      "show_upload": true,
+      "upload_label": "Handwerkskarte hochladen."
+    },
+
+    {
+      "slot_name": "handwerkskarte_date",
+      "slot_type": "text",
+      "description": "Ausstellungsdatum der Handwerkskarte",
+      "filed_name": "txtAusstellungsdat2S2",
+      "condition": {
+        "slot_name": "handwerkskarte",
+        "slot_value": "true"
+      },
+      "prompt": "Bitte geben Sie Ausstellungsdatum ihrer Handwerkskarte an (TT.MM.JJJJ). Dieses sollte auf ihrer Handwerkskarte vermerkt sein."
+    },
+
+    {
+      "slot_name": "handwerkskarte_office",
+      "slot_type": "text",
+      "description": "Handwerkskammer welche die Handwerkskarte ausgestellt hat",
+      "filed_name": "txtAusstellungsdat2S2",
+      "condition": {
+        "slot_name": "handwerkskarte",
+        "slot_value": "true"
+      },
+      "prompt": "Welche Behörde hat die Karte ausgestellt?"
+    },
+
+    {
+      "slot_name": "family_name",
+      "slot_type": "text",
+      "description": "Familienname; Nachname",
+      "filed_name": "txtFamiliennameS1",
+      "prompt": "Jetzt benötigen wir noch einige persönliche Angaben:\n Bitte geben Sie Ihren <strong>Familiennamen</strong> an."
+    },
+
+    {
+      "slot_name": "given_name",
+      "slot_type": "text",
+      "description": "Vorname(n)",
+      "filed_name": "txtVornamenS1",
+      "prompt": "Bitte geben Sie Ihren <strong>Vornamen</strong> an."
+    },
+    
+    {
+      "slot_name": "sex",
+      "slot_type": "choice",
+      "choices": [
+        "männlich",
+        "weiblich",
+        "divers",
+        "ohne Angabe"
+      ],
+      "description": "Geschlecht entsprechend der Eintragung in der Geburtsurkunde",
+      "filed_name": [
+        "chkGeschlecht1S1",
+        "chkGeschlecht2S1",
+        "chkGeschlecht3S1",
+        "chkGeschlecht4S1"
+      ],
+      "prompt": "Bitte geben Sie Ihr Geschlecht entsprechend der Eintragung in der Geburtsurkunde an (männlich, weiblich, divers, ohne Angabe). <strong>Diese Angabe dient lediglich statistischen Zwecken</strong>."
+    },
+    
+    {
+      "slot_name": "birth_name",
+      "slot_type": "text",
+      "description": "Geburtsname (nur bei Abweichung vom Familiennamen)",
+      "filed_name": "txtGeburtsnamenS1",
+      "prompt": "Bitte geben Sie Ihren Geburtsnamen an (nur bei Abweichung vom Familiennamen, zum **überspringen Enter drücken**)."
+    },
+    
+    {
+      "slot_name": "birth_date",
+      "slot_type": "text",
+      "description": "Geburtsdatum (TT.MM.JJJJ)",
+      "filed_name": "txtGeburtsdatumS1",
+      "prompt": "Bitte geben Sie Ihr Geburtsdatum (TT.MM.JJJJ) an."
+    },
+    
+    {
+      "slot_name": "birth_place",
+      "slot_type": "text",
+      "description": "Geburtsort und -land (Ort, Land)",
+      "filed_name": "txtGeburtsortS1",
+      "prompt": "Bitte geben Sie Ihren Geburtsort und -land (Ort, Land) an."
+    },
+    
+    {
+      "slot_name": "nationality",
+      "slot_type": "choice",
+      "choices": [
+        "ja",
+        "nein"
+      ],
+      "description": "Staatsangehörigkeit(en)",
+      "filed_name": [
+        "chkStaat1S1",
+        "chkStaat2S1"
+      ],
+      "prompt": "Haben Sie die Deutsche Staatsangehörigkeit? (ja/nein)"
+    },
+    
+    {
+      "slot_name": "other_nationality",
+      "slot_type": "text",
+      "description": "Andere Staatsangehörigkeit",
+      "filed_name": "txtStaatS1",
+      "condition": {
+        "slot_name": "nationality",
+        "slot_value": "false"
+      },
+      "prompt": "Bitte geben Sie Ihre Staatsangehörigkeit an."
+    },
+    
+    {
+      "slot_name": "residence_permit",
+      "slot_type": "choice",
+      "choices": [
+        "ja",
+        "nein",
+        "nicht anwendbar"
+      ],
+      "description": "Liegt ein Aufenthaltstitel vor?",
+      "filed_name": [
+        "chkAufenthalt1S2",
+        "chkAufenthalt2S2"
+      ],
+      "prompt": "Liegt ein Aufenthaltstitel vor? **Falls ja können Sie ein Foto Ihres Aufenthaltstitels hochladen.**",
+      "additional_information": [
+      "## Zusätzliche Informationen\n\n <details>In Deutschland benötigen alle Drittstaatsangehörigen (also Personen, die weder deutsche Staatsangehörige noch Bürger eines EU-/EWR-Staates oder der Schweiz sind) für ihren Aufenthalt einen Aufenthaltstitel. Weitere Informationen finden Sie <a href=\"https://www.bmi.bund.de/DE/themen/migration/aufenthaltsrecht/einreise-und-aufenthalt/einreise-und-aufenthalt-node.html\" target=\"_blank\">hier</a> </details>"
+      ],
+      "show_upload": true,
+      "upload_label": "Aufenthaltstitel hochladen"
+    },
+
+    {
+      "slot_name": "residence_permit_date",
+      "slot_type": "text",
+      "description": "Ausstellungsdatum des Aufenthaltstitels",
+      "filed_name": "txtAusstellungsdat3S2",
+      "condition": {
+        "slot_name": "residence_permit",
+        "slot_value": "true"
+      },
+      "prompt": "Wann wurde der Aufenthaltstitel ausgestellt (TT.MM.JJJJ)?"
+    },
+
+    {
+      "slot_name": "residence_permit_office",
+      "slot_type": "text",
+      "description": "Ausstellungs Behörde des Aufenthaltstitels",
+      "filed_name": "txtAusstellungsdat3S2",
+      "condition": {
+        "slot_name": "residence_permit",
+        "slot_value": "true"
+      },
+      "prompt": "Welche Behörde hat den Aufenthaltstitel ausgestellt?"
+    },
+    
+    {
+      "slot_name": "permit_restriction",
+      "slot_type": "choice",
+      "choices": [
+        "ja",
+        "nein"
+      ],
+      "description": "Enthält der Aufenthaltstitel eine Auflage/Beschränkung?",
+      "filed_name": [
+        "chkAuflage1S2",
+        "chkAuflage2S2"
+      ],
+      "condition": {
+        "slot_name": "residence_permit",
+        "slot_value": "true"
+      },
+      "prompt": "Enthält der Aufenthaltstitel eine Auflage/Beschränkung?"
+    },
+
+    {
+      "slot_name": "restriction_details",
+      "slot_type": "text",
+      "description": "Angabe der Auflage und/oder Beschränkungen",
+      "filed_name": "txtAuflageS2",
+      "condition": {
+        "slot_name": "permit_restriction",
+        "slot_value": "true"
+      },
+      "prompt": "Welche Einschränkungen sind aufgeführt?"
+    },
+
+    {
+      "slot_name": "address",
+      "slot_type": "text",
+      "description": "Anschrift der Wohnung (Straße, Hausnummer, Postleitzahl, Ort)",
+      "filed_name": "txtAnschrift1S1",
+      "prompt": "Bitte geben Sie Ihre Wohnadresse (Straße, Hausnummer, Postleitzahl, Ort) an."
+    },
+
+    {
+      "slot_name": "phone",
+      "slot_type": "text",
+      "description": "(Mobil-)Tel.-Nr.",
+      "filed_name": "txtTel1S1",
+      "prompt": "Bitte geben Sie Ihre (Mobil-)Telefonnummer an."
+    },
+
+    {
+      "slot_name": "email",
+      "slot_type": "text",
+      "description": "E-Mail",
+      "filed_name": "txtMail1S1",
+      "prompt": "Bitte geben Sie Ihre E-Mail-Adresse an."
+    }
+  ],
+  "validators": "GewerbeanmeldungValidators",
+  "pdf_file": "pdfs/Gewerbeanmeldung.pdf"
+}

@@ -441,12 +441,18 @@ class Name(BaseModel):
     city: str
     birth_date: str
 
+class Address(BaseModel):
+    postalcode: str
+    city: str
+    street_name: str
+    street_number: str
+
 class HRA(BaseModel):
     authority: str
     hra_number: str
     company_name: str
     legal_type:str
-    address:str
+    address:Address
     activity:str
     ceo:List[Name]
 
@@ -476,12 +482,6 @@ def extract_information_HRA_info_from_img(img)->Dict:
     )
 
     return response_to_dict(response)
-
-class Address(BaseModel):
-    postalcode: str
-    city: str
-    street_name: str
-    street_number: str
 
 class IDCard(BaseModel):
     given_name: str

@@ -371,8 +371,8 @@ class GewerbeanmeldungValidators(BaseValidators):
             validity, reason, payload = self.valid_email(x)
             return validity, reason, payload
         
-    def valid_main_branch_address(self, x, llm_service = None):
-        return self.valid_representative_address(x, llm_service)
+    # def valid_main_branch_address(self, x, llm_service = None):
+    #     return self.valid_representative_address(x, llm_service)
     
     def valid_main_branch_phone(self,x):
         if x == "":

@@ -1,0 +1,25 @@
+{
+  "slots": [
+    {
+      "slot_name": "num_representatives",
+      "slot_type": "number",
+      "description": "Zahl der gesetzlichen Vertreter (nur bei juristischen Personen)",
+      "filed_name": "txtVertreterS1",
+      "prompt": "Bitte geben Sie die Zahl der gesetzlichen Vertreter an (Geschäftsführer).",
+      "additional_information": [
+        {
+          "title": "Gesetzliche Vertreter (Geschäftsführer)",
+          "body": "Ein Geschäftsführer ist die Person, die eine GmbH oder UG nach außen rechtlich vertritt und die Geschäfte der Gesellschaft führt."
+        }
+      ],
+      "placeholder":"Geben Sie die Anzahl der gesetzlichen Vertreter an.",
+      "constraints": {
+        "min_value":1,
+        "max_value":99,
+        "step":1,
+        "value":1
+      }
+    }],
+  "validators": "GewerbeanmeldungValidators",
+  "pdf_file": "pdfs/gewerbeanmeldung.pdf"
+}

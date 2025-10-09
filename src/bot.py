@@ -227,7 +227,7 @@ def chatbot_fn(
 
             # FORM SELECTION WIZARD — NEXT START: SHORTCUT WIZARD (UI)
             # (UI rendert die 4 Buttons; Bot wartet, bis Mapping abgeschlossen ist.)
-            state["active_wizard"] = "shortcut_wizard"
+            state["active_wizard"] = "prereg_wizard"
             state["wizard_handles"] = None
 
             # jetzt ist die UI dran
@@ -238,6 +238,9 @@ def chatbot_fn(
         state["wizard_state"] = None
         return history, state, ""
 
+    # VOR dem Shortcut-Zweig:
+    if state.get("active_wizard") == "prereg_wizard":
+        return history, state, ""
     # -----------------------------------------------------------------------
     # SHORTCUT WIZARD (UI-geführt) — START
     # (Solange aktiv, nichts im Chat ausgeben; UI arbeitet.
