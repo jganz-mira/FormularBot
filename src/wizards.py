@@ -318,7 +318,7 @@ class LanguageWizard:
             return msg, False, s.lang_code
 
         # Fallback
-        msg = "Wie sollen wir sprechen?"
+        msg = "Auf **welcher Sprache** wollen wir uns unterhalten? Schreib einfach 'Deutsch', 'Englisch'...."
         s.history.append(("assistant", msg))
         return msg, False, s.lang_code
 
@@ -392,7 +392,7 @@ class FormSelectionWizard:
         )
         data = json.loads(resp.output_text)
         labels = data.get("labels", [])
-        prompt = data.get("prompt", "Bitte wählen Sie ein Formular:")
+        prompt = data.get("prompt", "**Bitte wähle ein Formular aus:")
         rid = getattr(resp, "id", None)
 
         # conversation_id setzen, falls neu
@@ -416,9 +416,9 @@ class FormSelectionWizard:
             if (s.lang_code or "de").lower() == "de":
                 s.translated_labels = list(s.available_form_keys)  # 1:1 übernehmen
                 s.awaiting_selection = True
-                prompt = "Bitte wählen Sie ein Formular:"
+                prompt = "Bitte wähle ein Formular aus:"
                 numbered = self._format_numbered_list(s.translated_labels)
-                hint = "Sie können die Nummer oder den Namen eingeben."
+                hint = "Gib dazu einfach die **Nummer** des angegebenen Formulars ein."
                 return f"{prompt}\n{numbered}\n\n{hint}", False, s.lang_code
 
             # 🔁 Andernfalls wie gehabt: LLM-Übersetzung
@@ -814,7 +814,7 @@ class ShortCutWizard:
         if s.phase == "ask_path":
             s.turns += 1
             msg = (
-                "Wie möchten Sie fortfahren?\n\n"
+                "Um das Ausfüllen zu beschleunigen, können Sie ihren **Handelsregisterauszug** hochladen. Wie möchten Sie fortfahren?\n\n"
                 "1) **Foto aufnehmen**\n"
                 "2) **Bild hochladen**\n"
                 "3) **PDF Datei hochladen**\n"
