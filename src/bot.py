@@ -137,7 +137,7 @@ def chatbot_fn(
     # 1) Begrüßung (einmalig) — robust ggü. UI-Vorgrüßung
     # -----------------------------------------------------------------------
     if not state.get("_greeted", False):
-        greet_de = "👋 Willkommen! Ich helfe Ihnen beim Ausfüllen von Formularen. Los geht’s!"
+        greet_de = "👋 **Hi ich bin chatGP** dein persönlicher Göppinger KI Assistent. Ich werde dir beim ausfüllen deines Wunschformulars helfen!"
         history = utter_message_with_translation(history, greet_de, target_lang=state.get("lang"))
         state["_greeted"] = True
         # Kein return: wir gehen direkt zur Sprachauswahl.
