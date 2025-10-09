@@ -28,6 +28,9 @@ class GenericPdfFiller:
             choices = details.get("choices")
             check_box_condition = details.get("check_box_condition")
             if choices:
+                if not isinstance(targets, list):
+                    text_accum.setdefault(targets, []).append(str(value))
+                    continue
                 for idx, fn in enumerate(targets):
                     # Wahrheits-Abgleich
                     if isinstance(value, str) and value.lower() in ("true","false"):
@@ -37,7 +40,11 @@ class GenericPdfFiller:
                             val_bool = value.lower() in ("true","ja","yes","1","on")
                             selected = (val_bool and idx==0) or (not val_bool and idx==1)
                     else:
-                        selected = str(value).strip().lower() == str(choices[idx]).lower()
+                        try:
+                            selected = str(value).strip().lower() == str(choices[idx]).lower()
+                        except IndexError:
+                            print(slot)
+                            print(details)
                     if selected:
                         field_map[fn] = "/Y"
             else:
