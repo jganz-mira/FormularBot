@@ -79,13 +79,20 @@
       "filed_name": "txtVornamenS1",
       "prompt": "Bitte geben Sie Ihren **Vornamen** an."
     },
+        {
+      "slot_name": "address",
+      "slot_type": "text",
+      "description": "Anschrift der Wohnung (Straße, Hausnummer, Postleitzahl, Ort)",
+      "filed_name": "txtAnschrift1S1",
+      "prompt": "Bitte geben Sie Ihre Wohnadresse (Straße, Hausnummer, Postleitzahl, Ort) an."
+    },
     {
       "slot_name": "birth_date",
       "slot_type": "date",
       "description": "Geburtsdatum (TT.MM.JJJJ)",
       "filed_name": "txtGeburtsdatumS1",
       "prompt": "Bitte geben Sie Ihr Geburtsdatum (TT.MM.JJJJ) an.",
-      "format":"DD.MM.YYYY",
+      "format": "DD/MM/YYYY",
       "constraints": {
           "max_offset_days_past":36500,
           "max_offset_days_future":0
@@ -117,7 +124,7 @@
         "description": "Datum des Beginns der angemeldeten Tätigkeit (TT.MM.JJJJ)",
         "filed_name": "txtBeginnS2",
         "prompt": "Wann werden Sie, bzw. wann haben Sie mit der anzumeldenden Tätigkeit begonnen? Bitte geben Sie das genaue Datum (TT.MM.JJJJ) an. Das Datum darf maximal einen Monat in der Vergangenheit liegen.",
-        "format":"DD.MM.YYYY",
+        "format": "DD/MM/YYYY",
         "constraints": {
           "max_offset_days_past":31,
           "max_offset_days_future":365

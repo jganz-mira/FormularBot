@@ -37,8 +37,8 @@ from src.bot import chatbot_fn
 from src.bot_helper import save_responses_to_json, load_forms
 from src.pdf_backend import GenericPdfFiller
 from src.translator import final_msgs, download_button_msgs, files_msgs, pdf_file_msgs
-from src.wizards import ShortCutWizard, ShortCutWizardState
-from src.bot_helper import extract_information_HRA_info_from_img
+from src.wizards import ShortCutWizard, ShortCutWizardState, IDCardWizard, IDCardWizardState
+from src.bot_helper import extract_information_HRA_info_from_img, extract_information_id_card
 from src.validators import BaseValidators, GewerbeanmeldungValidators
 
 # =============================================================================
@@ -372,6 +372,34 @@ def emit_assistant(
     if stop_after:
         st.stop()  # nur stoppen, wenn kein UI mehr direkt gerendert werden soll
 
+# =============================================================================
+# Hilfsfunktionen für pdf auslesen
+# =============================================================================
+def load_file_as_images(uploaded_file, dpi = 150) -> list:
+
+    file_bytes = uploaded_file.getvalue()
+
+    # 1️⃣ Versuch: PDF öffnen und jede Seite als Bild konvertieren
+    try:
+        import fitz  # PyMuPDF
+        zoom = dpi / 72.0
+        matrix = fitz.Matrix(zoom, zoom)
+        pdf_doc = fitz.open(stream=file_bytes, filetype="pdf")
+
+        images = []
+        for page_index, page in enumerate(pdf_doc, start=1):
+            pix = page.get_pixmap(alpha=False, matrix = matrix)
+            img_bytes = pix.tobytes("png")
+            np_arr = np.frombuffer(img_bytes, np.uint8)
+            cv_img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            if cv_img is not None:
+                images.append(cv_img)
+
+        return images
+
+    except Exception:
+        # Kein PDF oder Fehler beim Öffnen → normal als Bild lesen
+        raise "Error in opening pdf"
 
 # =============================================================================
 # Mini-Chat (im Expander) — OpenAI-Client & Antwortlogik
@@ -713,7 +741,7 @@ def render_shortcut_wizard_ui() -> None:
     # a) Entscheidung: 4 Buttons
     if phase == "ask_path":
         with st.chat_message("assistant"):
-            c1, c2, c3, c4 = st.columns(4)
+            c1, c2, c3, c4, c5 = st.columns(5)
             if c1.button("📷 Foto aufnehmen", key="scw_btn_camera"):
                 wiz.state.choice = "camera"
                 wiz.state.phase = "capture"
@@ -724,7 +752,12 @@ def render_shortcut_wizard_ui() -> None:
                 wiz.state.phase = "upload"
                 st.rerun()
 
-            if c3.button("🏦 Creditreform (Mock)", key="scw_btn_crf"):
+            if c3.button("📃 PDF hochladen", key="scw_btn_pdf_upload"):
+                wiz.state.choice = "pdf_upload"
+                wiz.state.phase = "pdf_upload"
+                st.rerun()
+
+            if c4.button("🏦 Creditreform (Mock)", key="scw_btn_crf"):
                 wiz.state.choice = "crf"
                 wiz.state.phase = "cr_mock"
                 # Mock-Daten vorbereiten (minimal, du kannst das anpassen)
@@ -740,7 +773,7 @@ def render_shortcut_wizard_ui() -> None:
                 wiz.state.phase = "review"
                 st.rerun()
 
-            if c4.button("✍️ Manuell weiter", key="scw_btn_manual"):
+            if c5.button("✍️ Manuell weiter", key="scw_btn_manual"):
                 wiz.state.choice = "manual"
                 wiz.state.phase = "done"
 
@@ -771,12 +804,35 @@ def render_shortcut_wizard_ui() -> None:
     # c) Bild hochladen
     if phase == "upload":
         with st.chat_message("assistant"):
-            up = st.file_uploader("Bitte wählen Sie ein Bild (PNG/JPG).", type=["png", "jpg", "jpeg"], accept_multiple_files=False, key="scw_uploader")
-            if up is not None:
-                bytes_data = up.getvalue()
-                image = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+            up = st.file_uploader(
+                "Bitte wählen Sie Bilder (PNG/JPG).",
+                type=["png", "jpg", "jpeg"],
+                accept_multiple_files=True,
+                key="scw_uploader",
+            )
+            if up:  # nur weiter, wenn mind. 1 Datei gewählt wurde
+                images = []
+                for file in up:
+                    bytes_data = file.getvalue()
+                    img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    images.append(img)
+
                 with st.spinner("Informationen werden aus dem Bild extrahiert …"):
-                    data = extract_information_HRA_info_from_img(image)
+                    data = extract_information_HRA_info_from_img(images)
+
+                wiz.state.extracted = data or {}
+                wiz.state.phase = "review"
+                st.rerun()
+
+    # c) Pdf hochladen
+    if phase == "pdf_upload":
+        with st.chat_message('assistant'):
+            up = st.file_uploader("Bitte wählen Sie eine PDF Datei.", type=["pdf"], accept_multiple_files=False, key="scw_uploader")
+            if up is not None:
+                images = load_file_as_images(up)
+                with st.spinner("Informationen werden aus dem PDF extrahiert …"):
+                    data = extract_information_HRA_info_from_img(images)
                 wiz.state.extracted = data or {}
                 wiz.state.phase = "review"
                 st.rerun()
@@ -874,11 +930,16 @@ def render_shortcut_wizard_ui() -> None:
                 wiz.state.edited = edited
                 wiz.state.phase = "ask_branch_addr"
                 st.rerun()
-            if colR.button("🔁 Neues Bild verwenden", key="scw_retry_image"):
+            if colR.button("🔁 Neue Datei verwenden", key="scw_retry_image"):
                 choice = wiz.state.choice
                 wiz.state.extracted = {}
                 wiz.state.edited = {}
-                wiz.state.phase = "capture" if choice == "camera" else "upload"
+                if choice == "camera":
+                    wiz.state.phase = "capture"
+                elif choice == "upload":
+                    wiz.state.phase = "upload"
+                elif choice == "pdf_upload":
+                    wiz.state.phase = "pdf_upload"
                 st.rerun()
 
     # e) Nachfrage: Betriebsstätten-Adresse?
@@ -908,7 +969,148 @@ def render_shortcut_wizard_ui() -> None:
                 # assistant_msg_then_next_slot("Alles klar – die Betriebsstättenanschrift erfassen wir separat. ✅")
                 emit_and_advance("Alles klar – die Betriebsstättenanschrift erfassen wir separat. ✅")
 
-    
+# =============================================================================
+# IDCardWizard
+# =============================================================================
+
+def render_idcard_wizard_ui() -> None:
+    """
+    UI für den IDCardWizard:
+    - 2 Buttons (Upload, Manuell)
+    - Upload
+    - Data-Editor (bearbeitbar)
+    - Bestätigen → Mapping-Hook (TODO: du füllst Slots)
+    """
+    sstate = st.session_state.state or {}
+    if sstate.get("active_wizard") != "idcard_wizard":
+        return
+
+    handles = sstate.get("wizard_handles") or {}
+    wiz: IDCardWizard = handles.get("idcard_wizard")
+    if not wiz:
+        wiz = IDCardWizard(IDCardWizardState(lang_code=sstate.get("lang") or "de"))
+        handles["idcard_wizard"] = wiz
+        st.session_state.state["wizard_handles"] = handles
+
+    # 1) Schritttext ausgeben (Assistant)
+    msg, done, _ = wiz.step(None)
+    # with st.chat_message("assistant"):
+    #     st.markdown(msg)
+    emit_assistant(msg, stream=True, guard_id=f"idcard:{wiz.state.phase}", stop_after=False)
+
+    # 2) Phasen-spezifisches UI
+    phase = wiz.state.phase
+
+    # a) Entscheidung: 4 Buttons
+    if phase == "ask_path":
+        with st.chat_message("assistant"):
+            c1, c2 = st.columns(2)
+
+            if c1.button("🪪 Ausweisbilder hochladen", key="idw_btn_upload"):
+                wiz.state.choice = "upload"
+                wiz.state.phase = "upload"
+                st.rerun()
+
+            if c2.button("✍️ Manuell weiter", key="idw_btn_manual"):
+                wiz.state.choice = "manual"
+                wiz.state.phase = "done"
+
+                form_key = st.session_state.state.get("form_type")
+                slots_def = FORMS.get(form_key, {}).get("slots", [])
+
+                wiz.apply_mapping_and_finish(st.session_state.state, slots_def)
+
+                # NEU: immer erst Bestätigungs-Text, dann nächster Slot-Prompt
+                # assistant_msg_then_next_slot("Wir machen manuell weiter. ✅")
+                emit_and_advance("Wir machen manuell weiter. ✅")
+
+    # b) Bild hochladen
+    if phase == "upload":
+        with st.chat_message("assistant"):
+            up = st.file_uploader("Bitte wählen Sie die Bilder (PNG/JPG).", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key="idw_uploader")
+            if up:
+                images = []
+                for idx, file in enumerate(up):
+                    img = cv2.imdecode(np.frombuffer(file.getvalue(), np.uint8), cv2.IMREAD_COLOR)
+                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    ### debug ###
+                    cv2.imwrite(f"uploaded_{idx}.png", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+                    #############
+                    images.append(img)
+                with st.spinner("Informationen werden extrahiert …"):
+                    data = extract_information_id_card(images)
+                print(data)
+                ### debug ###
+                wiz.state.extracted = data or {}
+                wiz.state.phase = "review"
+                st.rerun()
+
+    # c) Review: Data Editor
+    if phase == "review":
+
+        df_to_dict_column_names = {
+            "given_name":"Vorname",
+            "family_name":"Nachname",
+            "birth_date":"Geburtsdatum",
+            "nationality":"Staatsangehörigkeit",
+            "address":"Adresse",
+            "birth_place":"Geburtsort"
+        }
+
+        dict_column_names_to_df_names = {v:k for k,v in df_to_dict_column_names.items()}
+
+        with st.chat_message("assistant"):
+            st.markdown("### Erkannte Daten")
+            flat = (wiz.state.extracted or {}).copy()
+
+            # addresse auslesen
+            def _to_str(row: dict) -> str:
+                return ", ".join([
+                    str(row.get("street_name", "")).strip(),
+                    str(row.get("street_number", "")).strip(),
+                    str(row.get("postalcode", "")).strip(),
+                    str(row.get("city","")).strip()
+                ])
+            # adresse auslesen
+            address = flat.get("address")
+            flat["address"] = _to_str(address)
+
+            # nationality auslesen
+            flat['nationality'] = 'Deutsch' if flat['germany'] else flat['nationality']
+
+
+            flat['birth_place'] = f"{flat['birth_place']}, DEUTSCHLAND" if flat["germany"] else f"{flat['birth_place']}, {flat['nationality']}"
+            # pop filed germany
+            del flat["germany"]
+
+
+
+            df = pd.DataFrame([flat])
+            df.rename(df_to_dict_column_names,axis=1,inplace=True)
+            edited_df = st.data_editor(df, num_rows="fixed", key="scw_editor")
+            edited_df.rename(dict_column_names_to_df_names, axis=1, inplace=True)
+            edited = edited_df.to_dict(orient="records")[0]
+
+            colL, colR = st.columns(2)
+            if colL.button("✅ Daten übernehmen", key="idw_take_over"):
+                # an slots anpassen
+                if edited.get('nationality').strip().lower() in ['deutsch','deutschland','bundesrepublik deutschland']:
+                    edited['nationality'] = True
+                else:
+                    edited["other_nationality"] = edited['nationality']
+                    edited["nationality"] = False
+
+                wiz.state.edited = edited
+                form_key = st.session_state.state.get("form_type")
+                slots_def = FORMS.get(form_key, {}).get("slots", [])
+                wiz.apply_mapping_and_finish(st.session_state.state, slots_def)
+                emit_and_advance("Daten übernommen. Wir machen mit den restlichen Angaben weiter. ✅")
+
+            if colR.button("🔁 Neue Bilder hochladen", key="idw_retry_image"):
+                wiz.state.extracted = {}
+                wiz.state.edited = {}
+                wiz.state.phase = "upload"
+                st.rerun()
 
 # =============================================================================
 # Hauptablauf
@@ -979,6 +1181,7 @@ def main() -> None:
     render_slot_interaction_ui()     # Widget + Zusatzinfos + Mini-Chat
     render_completion_ui()           # PDF-Download + Upload-Mockup (bei completed)
     render_shortcut_wizard_ui()
+    render_idcard_wizard_ui()
     # ---------- Print alle bisher erfassten Felder -----
     # ---------- Debugging Print ----------------------
     render_debug_panel()

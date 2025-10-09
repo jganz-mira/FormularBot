@@ -14,6 +14,7 @@ import cv2
 import pytesseract
 from src.validator_helper import response_to_dict
 
+
 def load_forms(form_path:str, validator_map:Dict[str,callable]):
     forms = {}
     for fname in os.listdir(form_path):
@@ -451,7 +452,14 @@ class HRA(BaseModel):
 
 
 def extract_information_HRA_info_from_img(img)->Dict:
-    extracted_text = pytesseract.image_to_string(img,lang='deu')
+    if isinstance(img,list):
+        extracted_text = ''
+        for i in img:
+            text = pytesseract.image_to_string(i, lang='deu')
+            
+            extracted_text += text
+    else:
+        extracted_text = pytesseract.image_to_string(img,lang='deu')
     # post processing with llm
     system_prompt = (f"Du bist ein hochpräzises Textexraktionsmodell welches aus einem OCR string eines Bildes Informationen extrahiert. Extrahiere aus dem folgenden Str:\n"
                  "Den Namen des Registergerichts / Handelsregister (authority), die Handelsregisternummer (HRA), den Namen der Firma (company_name), die Geschäftsform (legal_type) (GmbH, GDR, etc.), die Adresse des Sitzes/Niederlassung/Geschäftsanschrift (address), den Gegenstand des Unternehmens (activity), den Nachnamen(family_name), Vornamen(given_name) (im Text findest du immer Nachname, Vorname, Wohnort, Geburtsdatum),  Wohnort (city) und das Geburtsdatum (birthdate)(Nur das Datum im Format: TT.MM.JJJJ) des Geschäftsführers (CEO) (lege diese angeben in einer json ab.).\n"
@@ -465,6 +473,49 @@ def extract_information_HRA_info_from_img(img)->Dict:
         model="gpt-4.1-mini",
         client=OpenAI(),
         json_schema = HRA
+    )
+
+    return response_to_dict(response)
+
+class Address(BaseModel):
+    postalcode: str
+    city: str
+    street_name: str
+    street_number: str
+
+class IDCard(BaseModel):
+    given_name: str
+    family_name: str
+    birth_date: str
+    birth_place: str
+    germany:bool
+    nationality:str
+    address:Address
+
+def extract_information_id_card(img)->Dict:
+    if isinstance(img,list):
+        extracted_text = ''
+        for i in img:
+            text = pytesseract.image_to_string(i, lang='deu')
+            
+            extracted_text += text
+    else:
+        extracted_text = pytesseract.image_to_string(img,lang='deu')
+        
+    # extracted_text = pytesseract.image_to_string(img, lang='deu')
+    # post processing with llm
+    system_prompt = (f"Du bist ein hochpräzises Textexraktionsmodell welches aus einem OCR string eines Bildes eines Personalausweises Informationen extrahiert. Extrahiere aus dem folgenden Str:\n"
+                 "Das Staatsangehörigkeit (nationality), den Geburtsort (birth_place), den Vornamen (surname), Nachnamen (given_name), Geburtsdatum (birth_date), und die Adresse (address). Extrahiere für die Adresse die Postleitzahl (postalcode), den Ortsnamen (city), den Straßennamen (street_name) und die Hausnummer (street_number). Wenn die Staatsangehörigkeit **DEUTSCH** ist, dann setze germany auf true, sonst false.\n"
+                 "Halte dich strikt an das JSON Format, erfinde unter keinen Umständen Angaben. Falls eine Angabe fehlt, lass das entsprechende Feld leer.")
+
+    llm_service = LLMValidatorService()
+
+    response = llm_service.validate_openai_structured_output(
+        system_prompt=system_prompt,
+        user_input=extracted_text,
+        model="gpt-4.1-mini",
+        client=OpenAI(),
+        json_schema = IDCard
     )
 
     return response_to_dict(response)

@@ -817,8 +817,9 @@ class ShortCutWizard:
                 "Wie möchten Sie fortfahren?\n\n"
                 "1) **Foto aufnehmen**\n"
                 "2) **Bild hochladen**\n"
-                "3) **Creditreform (Mock)**\n"
-                "4) **Manuell weiter ausfüllen**\n\n"
+                "3) **PDF Datei hochladen**\n"
+                "4) **Creditreform (Mock)**\n"
+                "5) **Manuell weiter ausfüllen**\n\n"
                 "_Bitte verwenden Sie die Buttons unter der Nachricht._"
             )
             return msg, False, lang
@@ -962,6 +963,114 @@ class ShortCutWizard:
                 _set("birth_date", filed_names.get("birth_date"), bdt)
 
         # --- 4) Wizard deaktivieren & Bot weiterschalten ------------------------
+        app_state["active_wizard"] = "idcard_wizard"
+        app_state["wizard_handles"] = None
+
+        # # Suche von vorne beginnen, damit next_slot_index alle Prefills sauber überspringt
+        # app_state["idx"] = 0
+
+        # Signal: der Bot soll den nächsten offenen Slot sofort fragen
+        app_state["awaiting_first_slot_prompt"] = False
+
+
+@dataclass
+class IDCardWizardState:
+    turns: int = 0
+    lang_code: Optional[str] = None
+    phase: str = "ask_path"       # ask_path | capture | upload | review | done
+    choice: Optional[str] = None  # 'camera' | 'upload' | 'manual'
+    extracted: Dict[str, Any] = field(default_factory=dict)
+    edited: Dict[str, Any] = field(default_factory=dict)
+
+class IDCardWizard:
+    """
+    Fragt danach, ob der Ausweis zum Schnelleren Ausfüllen genutzt werden soll
+
+    Ablauf:
+      - ask_path: 2 Buttons anzeigen (UI in streamlit_main.py)
+      - capture/upload: Bild erfassen/hochladen oder Mock-Daten vorbereiten
+      - review: Daten als Tabelle (st.data_editor) editieren, Buttons: "Übernehmen" / "Neues Bild"
+      - done: Wizard endet; Bot kann Slots füllen (Mapping-Hook in streamlit_main.py)
+    """
+    def __init__(self, state: Optional[IDCardWizardState] = None):
+        self.state = state or IDCardWizardState()
+
+    def step(self, user_text: Optional[str]) -> tuple[str, bool, Optional[str]]:
+        s = self.state
+        lang = s.lang_code or "de"
+
+        if s.phase == "ask_path":
+            s.turns += 1
+            msg = (
+                "Möchten Sie ein Foto von der Vorder- und Rückseite Ihres Ausweises hochladen um die restlichen Felder schneller auszufüllen?\n\n"
+                "_Bitte verwenden Sie die Buttons unter der Nachricht._"
+            )
+            return msg, False, lang
+
+        if s.phase in ("upload"):
+            # UI übernimmt hier (Kamera/Upload/Mock). Wir geben nur Status aus.
+            txt = {
+                "upload":  "Bitte laden Sie eine Bilddatei der Vorder- und Rückseite Ihres Ausweises hoch.",
+            }[s.phase]
+            return txt, False, lang
+
+        if s.phase == "review":
+            return ("Bitte prüfen/ergänzen Sie die erkannten Daten in der Tabelle unten und klicken Sie anschließend **Daten übernehmen** oder **Neues Bild verwenden**.", False, lang)
+
+        if s.phase == "done":
+            return ("Alles klar – ich übernehme die Daten und fülle die passenden Felder. ✅", True, lang)
+
+        return ("…", False, lang)
+
+    def export_state(self) -> Dict[str, Any]:
+        s = self.state
+        return {
+            "turns": s.turns,
+            "lang_code": s.lang_code,
+            "phase": s.phase,
+            "choice": s.choice,
+            "extracted": s.extracted,
+            "edited": s.edited,
+        }
+    
+    def apply_mapping_and_finish(self, app_state: dict, slots_def: list[dict]) -> None:
+        """
+        Übernimmt self.state.edited in app_state['responses'], aber nur, wenn der Slot existiert.
+        Setzt anschließend den Wizard außer Kraft und signalisiert dem Bot, mit dem 1. Slot weiterzumachen.
+        """
+        # --- Guards & Vorbereitung
+        if not isinstance(app_state, dict):
+            return
+
+        responses = app_state.setdefault("responses", {})
+        slot_names = {s.get("slot_name") for s in (slots_def or []) if isinstance(s, dict) and s.get("slot_name")}
+        filed_names = {s.get("slot_name"):s.get("filed_name") for s in (slots_def or []) if isinstance(s, dict) and s.get("slot_name")}
+        edited = dict(self.state.edited or {})
+
+        def _has(slot: str) -> bool:
+            return slot in slot_names
+
+        def _val_from_edited(key: str, default=""):
+            v = edited.get(key, default)
+            return v.strip() if isinstance(v, str) else v
+
+        def _set(slot: str, target_filed_name:str, value):
+            """Minimal-schreibweise: {'value': value} (target_filed_name ergänzt der Bot später)"""
+            if not _has(slot):
+                return
+            
+            if slot == 'nationality':
+                responses[slot] = {"value": str(value), "target_filed_name": target_filed_name, "choices" : ["ja","nein"]}
+            else:
+                # In deinem Bot werden Responses als Dict mit 'value' erwartet.
+                responses[slot] = {"value": value, "target_filed_name": target_filed_name}
+
+        # --- 1) Direktes Feld-Mapping -----------------------
+        for slot_name in edited:
+            if _has(slot_name):
+                _set(slot_name, filed_names[slot_name], _val_from_edited(slot_name))
+
+        # --- 2) Wizard deaktivieren & Bot weiterschalten ------------------------
         app_state["active_wizard"] = None
         app_state["wizard_handles"] = None
 

@@ -249,6 +249,17 @@ def chatbot_fn(
     if state.get("active_wizard") == "shortcut_wizard":
         return history, state, ""
 
+    # -----------------------------------------------------------------------
+    # IDCard WIZARD (UI-geführt) — START
+    # (Solange aktiv, nichts im Chat ausgeben; UI arbeitet.
+    #  Nach dem Finish muss die UI setzen:
+    #   - state["active_wizard"] = None
+    #   - state["wizard_handles"] = None
+    #   - state["awaiting_first_slot_prompt"] = True)
+    # -----------------------------------------------------------------------
+    if state.get("active_wizard") == "idcard_wizard":
+        return history, state, ""
+    
     # SHORTCUT WIZARD — END → wir erwarten awaiting_first_slot_prompt = True
     if state.pop("awaiting_first_slot_prompt", False):
         slots_def = FORMS[state["form_type"]]["slots"]

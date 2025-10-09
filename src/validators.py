@@ -237,7 +237,7 @@ class GewerbeanmeldungValidators(BaseValidators):
             print("check permit")
             needs_permit, permit_reason, _ = self.check_if_permit_is_required(x)
             if needs_permit == 'VALID':
-                reason = permit_reason + ' Weitere Informationen finden Sie hier: <a href=\"https://www.ihk.de/konstanz/recht-und-steuern/gewerberecht/einzelne-berufe/erlaubnispflichtigegewerbe13180-1672696 \" target=\"_blank\">hier</a>.'
+                reason = permit_reason + ' Weitere Informationen finden Sie [hier](https://www.ihk.de/konstanz/recht-und-steuern/gewerberecht/einzelne-berufe/erlaubnispflichtigegewerbe13180-1672696).'
 
 
 
